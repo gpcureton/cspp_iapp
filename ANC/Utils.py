@@ -1,0 +1,543 @@
+#!/usr/bin/env python
+# encoding: utf-8
+"""
+Utils.py
+
+Various methods that are used by other methods in the ANC module.
+
+Created by Geoff Cureton on 2013-03-04.
+Copyright (c) 2013 University of Wisconsin SSEC. All rights reserved.
+"""
+
+file_Date = '$Date: 2014-07-11 20:12:29 -0500 (Fri, 11 Jul 2014) $'
+file_Revision = '$Revision: 2184 $'
+file_Author = '$Author: geoffc $'
+file_HeadURL = '$HeadURL: https://svn.ssec.wisc.edu/repos/jpss_adl/trunk/scripts/edr/ANC/Utils.py $'
+file_Id = '$Id: Utils.py 2184 2014-07-12 01:12:29Z geoffc $'
+
+__author__ = 'G.P. Cureton <geoff.cureton@ssec.wisc.edu>'
+__version__ = '$Id: Utils.py 2184 2014-07-12 01:12:29Z geoffc $'
+__docformat__ = 'Epytext'
+
+import os, sys, logging, traceback
+from os import path,uname,environ
+import string
+import uuid
+from datetime import datetime,timedelta
+
+import numpy as np
+from numpy import ma
+
+import shlex, subprocess
+from subprocess import CalledProcessError, call
+from shutil import rmtree,copyfile,move
+
+import pygrib
+
+from adl_common import sh, env
+from adl_common import CSPP_RT_HOME, CSPP_RT_ANC_PATH, \
+    CSPP_RT_ANC_CACHE_DIR, COMMON_LOG_CHECK_TABLE, env, JPSS_REMOTE_ANC_DIR
+    
+from adl_common import IAPP_HOME
+
+# Plotting stuff
+import matplotlib
+import matplotlib.cm as cm
+from matplotlib.colors import ListedColormap
+from matplotlib.figure import Figure
+
+matplotlib.use('Agg')
+from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
+
+# This must come *after* the backend is specified.
+import matplotlib.pyplot as ppl
+
+# every module should have a LOG object
+try :
+    sourcename= file_Id.split(" ")
+    LOG = logging.getLogger(sourcename[1])
+except :
+    LOG = logging.getLogger('Utils')
+
+
+def getURID() :
+    '''
+    Create a new URID to be used in making the asc filenames
+    '''
+    
+    URID_dict = {}
+
+    URID_timeObj = datetime.utcnow()
+    
+    creationDateStr = URID_timeObj.strftime("%Y-%m-%d %H:%M:%S.%f")
+    creationDate_nousecStr = URID_timeObj.strftime("%Y-%m-%d %H:%M:%S.000000")
+    
+    tv_sec = int(URID_timeObj.strftime("%s"))
+    tv_usec = int(URID_timeObj.strftime("%f"))
+    hostId_ = uuid.getnode()
+    thisAddress = id(URID_timeObj)
+    
+    l = tv_sec + tv_usec + hostId_ + thisAddress
+    
+    URID = '-'.join( ('{0:08x}'.format(tv_sec)[:8],
+                      '{0:05x}'.format(tv_usec)[:5],
+                      '{0:08x}'.format(hostId_)[:8],
+                      '{0:08x}'.format(l)[:8]) )
+    
+    URID_dict['creationDateStr'] = creationDateStr
+    URID_dict['creationDate_nousecStr'] = creationDate_nousecStr
+    URID_dict['tv_sec'] = tv_sec
+    URID_dict['tv_usec'] = tv_usec
+    URID_dict['hostId_'] = hostId_
+    URID_dict['thisAddress'] = thisAddress
+    URID_dict['URID'] = URID
+    
+    return URID_dict
+
+
+def getAscLine(fileObj,searchString):
+    ''' Parses a file and searches for a string in each line, returning 
+        the line if the string is found.'''
+
+    dataStr = ''
+    try :
+        while True :
+            line = fileObj.readline()
+
+            if searchString in line : 
+                dataStr = "%s" % (string.replace(line,'\n',''));
+                break
+
+        fileObj.seek(0)
+
+    except Exception, err:
+        LOG.error('Exception: %r' % (err))
+        LOG.debug(traceback.format_exc())
+        fileObj.close()
+
+    return dataStr
+
+
+def getAscStructs(fileObj,searchString,linesOfContext):
+    ''' Parses a file and searches for a string in each line, returning 
+        the line (and a given number of lines of context) if the string 
+        is found.'''
+
+    dataList = []
+    data_count = 0
+    dataFound = False
+
+    try :
+        while True :
+            line = fileObj.readline()
+
+            if searchString in line : 
+                dataFound = True
+
+            if dataFound :
+                dataStr = "%s" % (string.replace(line,'\n',''));
+                dataList.append(dataStr)
+                data_count += 1
+            else :
+                pass
+
+            if (data_count == linesOfContext) :
+                break
+
+        fileObj.seek(0)
+
+    except Exception, err:
+        LOG.error('Exception: %r' % (err))
+        LOG.debug(traceback.format_exc())
+        fileObj.close()
+        return -1
+
+    dataStr=''
+    dataStr = "%s" % ("\n").join(['%s' % (str(lines)) for lines in dataList])
+
+    return dataStr
+
+
+def findDatelineCrossings(latCrnList,lonCrnList):
+    '''
+    #--------------------------------------------------------------------------
+    # Finds the places where the boundary points that will make up a polygon
+    # cross the dateline.
+    #
+    # This method is heavily based on the AltNN NNfind_crossings() method
+    #
+    # NOTE:  This loop will find the place(s) where the boundary crosses 180
+    # degrees longitude.  It will also record the index after the crossing
+    # for the first two crossings.
+    # 
+    # NOTE:  Since the last point in the boundary is equal to the first point
+    # in the boundary, there is no chance of a crossing between the last
+    # and first points.
+    #
+    # initialize the number of crossings to zero
+    # for loop over the boundary
+    #    if the longitudes cross the 180 degree line, then
+    #       increment the number of crossings
+    #       if this is first crossing, then
+    #          save the index after the crossing
+    #       else if this is the second crossing
+    #          save the index after the second crossing
+    #       endif
+    #    endif
+    # end for loop
+    #--------------------------------------------------------------------------
+    '''
+
+    status = 0
+    numCrosses = 0
+
+    # For an ascending granule, the corner points are numbered [0,1,3,2], from 
+    # the southeast corner moving anti-clockwise.
+
+    LOG.debug("latCrnList = %r " % (latCrnList))
+    LOG.debug("lonCrnList = %r " % (lonCrnList))
+
+    for idx1,idx2 in zip([1,3,2],[0,1,3]):
+        
+        # Convert the longitudes to radians, and calculate the 
+        # absolute difference
+        lon1 = np.radians(lonCrnList[idx1])
+        lon2 = np.radians(lonCrnList[idx2])
+        lonDiff = np.fabs( lon1 - lon2 )
+        
+        if ( np.fabs(lonDiff) > np.pi ):
+
+            # We have a crossing, incrememnt the number of crossings
+            numCrosses += 1
+            
+            if(numCrosses == 1):
+
+                # This was the first crossing
+                cross1Idx_ = idx1
+
+            elif(numCrosses == 2):
+
+                # This was the second crossing
+                cross2Idx_ = idx1
+
+            else :
+
+                # we should never get here
+                return -1
+
+    num180Crossings_ = numCrosses
+
+    '''
+    # now determine the minimum and maximum latitude
+    maxLat_ = latCrnList[0]
+    minLat_ = maxLat_
+
+    for idx in [1,3,2]:
+        if(latCrnList[idx] > maxLat_):
+            # if current lat is bigger than maxLat_, make the current point the
+            # maximum
+            maxLat_ = latCrnList[idx]
+
+        if(latCrnList[idx] < minLat_):
+            # if current lat is smaller than minLat_, make the current point the
+            # minimum
+            minLat_ = latCrnList[idx]
+
+    return num180Crossings_,minLat_,maxLat_
+    '''
+
+    return num180Crossings_
+
+
+def check_exe(exeName):
+    ''' Check that a required executable is in the path...'''    
+    try:
+        retVal = sh(['which',exeName])
+        LOG.info("{} is in the PATH...".format(exeName))
+    except CalledProcessError:
+        LOG.error("Required executable {} is not in the path or is not installed, aborting."
+                .format(exeName))
+        sys.exit(1)
+
+
+def retrieve_NCEP_grib_files(Level1D_obj):
+    ''' Download the GRIB files which cover the dates of the geolocation files.'''
+
+    ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp')
+
+    # Check that we have access to the c-shell...
+    check_exe('csh')
+
+    LOG.info('Retrieving and granulating ancillary data for {}...'
+            .format(Level1D_obj.input_file))
+
+    # Check that we have access to the GRIB retrieval scripts...
+    scriptNames = [
+                   'get_anc_iapp_grib1_gdas_gfs.csh'
+                  ]
+    for scriptName in scriptNames:
+        scriptPath = path.join(ANC_SCRIPTS_PATH,scriptName)
+        LOG.debug('Checking {}...'.format(scriptPath))
+        if not path.exists(scriptPath):
+            LOG.error('GRIB ancillary retrieval script {} can not be found, aborting.'
+                    .format(scriptPath))
+            #sys.exit(1)
+
+    # Get the time stamp for the input file
+    dateStamp = Level1D_obj.timeObj_start.strftime("%Y%m%d")
+
+    timeObj = datetime.utcnow()
+    now_time_stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+
+    script_args = '{} {}'.format(
+            Level1D_obj.timeObj_mid.strftime("%Y%j"),
+            Level1D_obj.timeObj_mid.strftime("%H%M")
+            )
+    LOG.debug('Script args: {}'.format(script_args))
+    LOG.debug('JPSS_REMOTE_ANC_DIR: {}'.format(JPSS_REMOTE_ANC_DIR))
+
+    gribFiles = []
+
+    try :
+        LOG.info('Retrieving NCEP files for {} ...'
+                .format(Level1D_obj.pass_mid_str))
+        cmdStr = '{} {}'.format(scriptPath,script_args)
+        LOG.debug('\t{}'.format(cmdStr))
+        args = shlex.split(cmdStr)
+
+        procRetVal = 0
+        procObj = subprocess.Popen(args, \
+                env=env(CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,CSPP_RT_HOME=CSPP_RT_HOME, \
+                JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR), \
+                bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        procObj.wait()
+        procRetVal = procObj.returncode
+
+        procOutput = procObj.stdout.readlines()
+
+        for lines in procOutput:
+            LOG.debug(lines)
+            if "GDAS/GFS file" in lines :
+                lines = string.replace(lines,'GDAS/GFS file: ','')
+                lines = string.replace(lines,'\n','')
+                gribFiles.append(lines)
+
+        # TODO : On error, jump to a cleanup routine
+        if not (procRetVal == 0) :
+            LOG.error('Retrieval of ancillary files failed for {}.'
+                    .format(Level1D_obj.pass_mid_str))
+            #sys.exit(procRetVal)
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+    ## Uniqify the list of GRIB files
+    gribFiles = list(set(gribFiles))
+    gribFiles.sort()
+
+    for gribFile in gribFiles :
+        LOG.info('Retrieved GRIB file: {}'.format(gribFile))
+
+    return gribFiles
+
+
+def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
+
+    IAPP_SCRIPTS_PATH=path.abspath(path.join(IAPP_HOME,'decoders','bin'))
+    LOG.debug('IAPP_SCRIPTS_PATH : {}'.format(IAPP_SCRIPTS_PATH))
+    IAPP_FILES_PATH=path.abspath(path.join(IAPP_HOME,'decoders','files'))
+    LOG.debug('IAPP_FILES_PATH : {}'.format(IAPP_FILES_PATH))
+    NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
+    LOG.debug('IAPP_FILES_PATH : {}'.format(IAPP_FILES_PATH))
+    GRIB_FILE_PATH=path.abspath(path.dirname(grib1_file))
+    LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
+
+    # Check that we have access to the c-shell...
+    check_exe('ksh')
+    check_exe('ncgen')
+
+    # Check that we have access to the GRIB retrieval scripts...
+    scriptNames = [
+                   'iapp_grib2nc.ksh'
+                  ]
+    for scriptName in scriptNames:
+        scriptPath = path.join(IAPP_SCRIPTS_PATH,scriptName)
+        LOG.debug('Checking {}...'.format(scriptPath))
+        if not path.exists(scriptPath):
+            LOG.error('GRIB transcoding script {} can not be found, aborting.'
+                    .format(scriptPath))
+            #sys.exit(1)
+
+    # Set up the logging
+    d = datetime.now()
+    timestamp = d.isoformat()
+    logname= "iapp_grib2nc."+timestamp+".log"
+    logpath= path.join(log_dir, logname )
+    logfile_obj = open(logpath,'w')
+
+    script_args = '{} {}/iapp_ancillary.cdl'.format(
+            grib1_file,
+            IAPP_FILES_PATH
+            )
+
+    try :
+        # Call the transcoding script, writing the logging output to a file
+        LOG.info('Transcoding NCEP file {} to NetCDF...'.format(grib1_file))
+        cmdStr = '{} {}'.format(scriptPath,script_args)
+        LOG.debug('\t{}'.format(cmdStr))
+        args = shlex.split(cmdStr)
+
+        procRetVal = 0
+        procObj = subprocess.Popen(args,
+                env=env(
+                    CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,
+                    CSPP_RT_HOME=CSPP_RT_HOME,
+                    JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR,
+                    NCGEN_PATH=NCGEN_PATH
+                    ),
+                bufsize=0, stdout=logfile_obj, stderr=subprocess.STDOUT)
+        procObj.wait()
+        procRetVal = procObj.returncode
+
+        logfile_obj.close()
+
+        # TODO : On error, jump to a cleanup routine
+        if not (procRetVal == 0) :
+            LOG.error('Transcoding NCEP file {} to NetCDF failed, aborting...'
+                    .format(grib1_file))
+            sys.exit(procRetVal)
+
+        # Parse the logfile to determine the new NetCDF filename    
+        logfile_obj = open(logpath,'r')
+        search_str = "Successfully transcoded to NetCDF file: "
+        for lines in logfile_obj:
+            if search_str in lines :
+                lines = string.replace(lines,search_str,'')
+                lines = string.replace(lines,'\n','')
+                grib_netcdf_file = lines
+                break
+        logfile_obj.close()
+
+        grib_netcdf_local_file = path.join(work_dir,grib_netcdf_file)
+        grib_netcdf_remote_file = path.join(GRIB_FILE_PATH,grib_netcdf_file)
+
+        LOG.info('New NetCDF file successfully created: {}'.format(grib_netcdf_local_file))
+
+        # Move the new NetCDF file to the ancillary cache...
+        if not path.exists(grib_netcdf_local_file):
+            LOG.error('New NetCDF file creation failed, aborting...')
+            sys.exit(1)
+        else:
+            LOG.debug('New NetCDF file {} exits'.format(grib_netcdf_local_file))
+
+        if not path.exists(grib_netcdf_remote_file):
+            LOG.debug('Moving {} to {}...'.format(
+                grib_netcdf_local_file,grib_netcdf_remote_file
+                ))
+            move(grib_netcdf_local_file,grib_netcdf_remote_file)
+        else:
+            LOG.debug('Remote NetCDF file {} exits...'.format(grib_netcdf_remote_file))
+
+        # Remove the temporary NetCDF generation files
+        for files in ['ancillary.data','ancillary.info','gribparm.lis']:
+            temp_file = path.join(work_dir,files)
+            if path.exists(temp_file):
+                LOG.debug('Removing temporary NetCDF generation file {}'.format(temp_file))
+                os.unlink(temp_file)
+
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+    return grib_netcdf_remote_file
+
+
+def transcode_METAR_grib_files(grib1_fle):
+
+    NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
+
+    LOG.debug('ncgen : {}'.format(NC_GEN))
+
+    try :
+        LOG.info('Transcoding METAR file {} to NetCDF...'.format(grib1_fle))
+        cmdStr = '{} {}'.format(scriptPath,script_args)
+        LOG.debug('\t{}'.format(cmdStr))
+        args = shlex.split(cmdStr)
+
+        procRetVal = 0
+        procObj = subprocess.Popen(args, \
+                env=env(CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,CSPP_RT_HOME=CSPP_RT_HOME, \
+                JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR), \
+                bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        procObj.wait()
+        procRetVal = procObj.returncode
+
+        procOutput = procObj.stdout.readlines()
+
+        for lines in procOutput:
+            LOG.debug(lines)
+            if "GDAS/GFS file" in lines :
+                lines = string.replace(lines,'GDAS/GFS file: ','')
+                lines = string.replace(lines,'\n','')
+                gribFiles.append(lines)
+
+        # TODO : On error, jump to a cleanup routine
+        if not (procRetVal == 0) :
+            LOG.error('Retrieval of ancillary files failed for {}.'
+                    .format(Level1D_obj.pass_mid_str))
+            #sys.exit(procRetVal)
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+def plotArr(data,pngName):
+    '''
+    Plot the input array, with a colourbar.
+    '''
+
+    plotTitle =  string.replace(pngName,".png","")
+    cbTitle   =  "Value"
+    #vmin,vmax =  0,1
+    vmin,vmax =  None,None
+
+    # Create figure with default size, and create canvas to draw on
+    scale=1.5
+    fig = Figure(figsize=(scale*8,scale*3))
+    canvas = FigureCanvas(fig)
+
+    # Create main axes instance, leaving room for colorbar at bottom,
+    # and also get the Bbox of the axes instance
+    ax_rect = [0.05, 0.18, 0.9, 0.75  ] # [left,bottom,width,height]
+    ax = fig.add_axes(ax_rect)
+
+    # Granule axis title
+    ax_title = ppl.setp(ax,title=plotTitle)
+    ppl.setp(ax_title,fontsize=12)
+    ppl.setp(ax_title,family="sans-serif")
+
+    # Plot the data
+    data = ma.masked_less(data,-800.)
+    im = ax.imshow(data,axes=ax,interpolation='nearest',vmin=vmin,vmax=vmax)
+    
+    # add a colorbar axis
+    cax_rect = [0.05 , 0.05, 0.9 , 0.10 ] # [left,bottom,width,height]
+    cax = fig.add_axes(cax_rect,frameon=False) # setup colorbar axes
+
+    # Plot the colorbar.
+    cb = fig.colorbar(im, cax=cax, orientation='horizontal')
+    ppl.setp(cax.get_xticklabels(),fontsize=9)
+
+    # Colourbar title
+    cax_title = ppl.setp(cax,title=cbTitle)
+    ppl.setp(cax_title,fontsize=9)
+
+    # Redraw the figure
+    canvas.draw()
+
+    # save image 
+    canvas.print_figure(pngName,dpi=200)
+
+

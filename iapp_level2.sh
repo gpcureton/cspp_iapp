@@ -1,49 +1,44 @@
 #!/bin/bash
-# $Id: viirs_edr.sh 1886 2014-01-30 00:37:17Z geoffc $
+# $Id$
 #
-# Wrapper script for adl_viirs_edr.py, which runs the 
-# CSPP VIIRS EDR package.
+# Wrapper script for iapp_level2.py, which runs the 
+# CSPP IAPP package.
 #
 # Environment settings:
 # CSPP_RT_HOME : the location of the CSPP_RT directory
 #
-# Copyright 2011-2012, University of Wisconsin Regents.
+# Copyright 2014-2014, University of Wisconsin Regents.
 # Licensed under the GNU GPLv3.
 
-if [ -z "$CSPP_EDR_HOME" ]; then
-    echo "CSPP_EDR_HOME is not set, but is required for this script to operate."
+if [ -z "$CSPP_IAPP_HOME" ]; then
+    echo "CSPP_IAPP_HOME is not set, but is required for this script to operate."
     exit 9
 fi
 
-. ${CSPP_EDR_HOME}/cspp_edr_runtime.sh
+. ${CSPP_IAPP_HOME}/cspp_iapp_runtime.sh
 
 #
 # Gather the various command line options...
 #
 
 INPUT_FILES_OPT=
-ALG_OPT=
+SAT_OPT=
 WORK_DIR_OPT=
-SKIP_SDR_UNPACK_OPT=
-SKIP_ANCILLARY_OPT=
-SKIP_ALGORITHM_OPT=
-ANC_ENDIANNESS_OPT=
-SDR_ENDIANNESS_OPT=
-DEBUG_OPT=
-CHAIN_OPT=
+TOPO_FILE_OPT=
+INSTR_OPT=
+RETR_MTHD_OPT=
 PROC_OPT=
+DEBUG_OPT=
 VERBOSITY_OPT=
-ZIP_OPT=
-AGGREGATE_OPT=
 
 #echo $@
 
-OPTS=`getopt -o "i:w:p:dvhaz" -l "input_files:,alg:,work_directory:,processors:,anc_endianness:,sdr_endianness:,skip_sdr_unpack,skip_aux_linking,skip_ancillary,skip_algorithm,zip,aggregate,no_dummy_granules,debug,no_chain,verbose,help" -- "$@"`
+OPTS=`getopt -o "i:s:w:t:p:dvh" -l "input_files:,satellite:,work_directory:,topo_file:,instrument_combo:,retrieval_method:,processors:,debug,verbose,help" -- "$@"`
 
 # If returncode from getopt != 0, exit with error.
 if [ $? != 0 ]
 then
-    echo "There was an error with the command line parameters to viirs_edr.sh, aborting..."
+    echo "There was an error with the command line parameters to iapp_level2.sh, aborting..."
     exit 1
 fi
 
@@ -64,9 +59,9 @@ do
             haveFlag=1
             shift 2;;
 
-        --alg)
-            ALG_OPT="--alg=$2"
-            #echo "Setting ALG_OPT"
+        -s|--satellite)
+            SAT_OPT="--satellite=$2"
+            #echo "Setting SAT_OPT"
             haveFlag=1
             shift 2;;
 
@@ -76,15 +71,21 @@ do
             haveFlag=1
             shift 2;;
 
-        --sdr_endianness)
-            SDR_ENDIANNESS_OPT="--sdr_endianness=$2"
-            #echo "Setting SDR_ENDIANNESS_OPT"
+        -t|--topo_file)
+            TOPO_FILE_OPT="--topo_file=$2"
+            #echo "Setting TOPO_FILE_OPT"
             haveFlag=1
             shift 2;;
 
-        --anc_endianness)
-            ANC_ENDIANNESS_OPT="--anc_endianness=$2"
-            #echo "Setting ANC_ENDIANNESS_OPT"
+        --instrument_combo)
+            PROC_OPT="--instrument_combo=$2"
+            #echo "Setting INSTR_OPT"
+            haveFlag=1
+            shift 2;;
+
+        --retrieval_method)
+            PROC_OPT="--retrieval_method=$2"
+            #echo "Setting RETR_MTHD_OPT"
             haveFlag=1
             shift 2;;
 
@@ -94,56 +95,8 @@ do
             haveFlag=1
             shift 2;;
 
-        --skip_sdr_unpack)
-            SKIP_SDR_UNPACK_OPT="--skip_sdr_unpack"
-            #echo "Setting SKIP_SDR_UNPACK_OPT"
-            haveFlag=1
-            shift ;;
-
-        --skip_aux_linking)
-            SKIP_AUX_LINKING_OPT="--skip_aux_linking"
-            #echo "Setting SKIP_AUX_LINKING_OPT"
-            haveFlag=1
-            shift ;;
-
-        --skip_ancillary)
-            SKIP_ANCILLARY_OPT="--skip_ancillary"
-            #echo "Setting SKIP_ANCILLARY_OPT"
-            haveFlag=1
-            shift ;;
-
-        --skip_algorithm)
-            SKIP_ALGORITHM_OPT="--skip_algorithm"
-            #echo "Setting SKIP_ALGORITHM_OPT"
-            haveFlag=1
-            shift ;;
-
-        -a|--aggregate)
-            AGGREGATE_OPT="--aggregate"
-            #echo "Setting AGGREGATE_OPT"
-            haveFlag=1
-            shift ;;
-
-        -z|--zip)
-            ZIP_OPT="--zip"
-            #echo "Setting ZIP_OPT"
-            haveFlag=1
-            shift ;;
-
-        --no_dummy_granules)
-            NO_DUMMY_OPT="--no_dummy_granules"
-            #echo "Setting NO_DUMMY_OPT"
-            haveFlag=1
-            shift ;;
-
         -d|--debug)
             DEBUG_OPT="--debug"
-            #echo "Setting DEBUG_OPT"
-            haveFlag=1
-            shift ;;
-
-        --no_chain)
-            CHAIN_OPT="--no_chain"
             #echo "Setting DEBUG_OPT"
             haveFlag=1
             shift ;;
@@ -175,68 +128,48 @@ done
 
 if [[ $helpFlag -eq 1 ]];
 then
-    $PY $CSPP_EDR_HOME/viirs/adl_viirs_edr.py -h
+    $PY $CSPP_IAPP_HOME/iapp/iapp_level2.py -h
     exit 0
 fi
 if [[ $usageFlag -eq 1 ]];
 then
-    $PY $CSPP_EDR_HOME/viirs/adl_viirs_edr.py -h
+    $PY $CSPP_IAPP_HOME/iapp/iapp_level2.py -h
     exit 0
 fi
 
-#echo "INPUT_FILES_OPT      = "$INPUT_FILES_OPT
-#echo "ALG_OPT              = "$ALG_OPT
-#echo "WORK_DIR_OPT         = "$WORK_DIR_OPT
-#echo "SKIP_SDR_UNPACK_OPT  = "$SKIP_SDR_UNPACK_OPT
-#echo "SKIP_AUX_LINKING_OPT = "$SKIP_AUX_LINKING_OPT
-#echo "SKIP_ANCILLARY_OPT   = "$SKIP_ANCILLARY_OPT
-#echo "SKIP_ALGORITHM_OPT   = "$SKIP_ALGORITHM_OPT
-#echo "NO_DUMMY_OPT         = "$NO_DUMMY_OPT
-#echo "SDR_ENDIANNESS_OPT   = "$SDR_ENDIANNESS_OPT
-#echo "ANC_ENDIANNESS_OPT   = "$ANC_ENDIANNESS_OPT
-#echo "DEBUG_OPT            = "$DEBUG_OPT
-#echo "CHAIN_OPT            = "$CHAIN_OPT
-#echo "VERBOSITY_OPT        = "$VERBOSITY_OPT
+echo "INPUT_FILES_OPT      = "$INPUT_FILES_OPT
+echo "SAT_OPT              = "$SAT_OPT
+echo "WORK_DIR_OPT         = "$WORK_DIR_OPT
+echo "TOPO_FILE_OPT        = "$TOPO_FILE_OPT
+echo "INSTR_OPT            = "$INSTR_OPT
+echo "RETR_MTHD_OPT        = "$RETR_MTHD_OPT
+echo "PROC_OPT             = "$PROC_OPT
+echo "DEBUG_OPT            = "$DEBUG_OPT
+echo "VERBOSITY_OPT        = "$VERBOSITY_OPT
 
-
-GDB=''
-#GDB='gdb --args'
-#$GDB $PY $CSPP_RT_HOME/viirs/edr/adl_viirs_edr.py \
-
-
-#echo "$PY $CSPP_EDR_HOME/viirs/edr/adl_viirs_edr.py \
-    #$INPUT_FILES_OPT \
-    #$ALG_OPT \
-    #$WORK_DIR_OPT \
-    #$SKIP_SDR_UNPACK_OPT \
-    #$SKIP_AUX_LINKING_OPT \
-    #$SKIP_ANCILLARY_OPT \
-    #$SKIP_ALGORITHM_OPT \
-    #$NO_DUMMY_OPT \
-    #$SDR_ENDIANNESS_OPT \
-    #$ANC_ENDIANNESS_OPT \
-    #$DEBUG_OPT \
-    #$VERBOSITY_OPT
-#"
+echo "$PY $CSPP_IAPP_HOME/iapp/iapp_level2.py \
+    $INPUT_FILES_OPT \
+    $SAT_OPT \
+    $WORK_DIR_OPT \
+    $TOPO_FILE_OPT \
+    $INSTR_OPT \
+    $RETR_MTHD_OPT \
+    $PROC_OPT \
+    $DEBUG_OPT \
+    $VERBOSITY_OPT
+"
 
 #exit 1
 
-$PY $CSPP_EDR_HOME/viirs/adl_viirs_edr.py \
+$PY $CSPP_IAPP_HOME/iapp/iapp_level2.py \
     $INPUT_FILES_OPT \
-    $ALG_OPT \
+    $SAT_OPT \
     $WORK_DIR_OPT \
-    $SKIP_SDR_UNPACK_OPT \
-    $SKIP_AUX_LINKING_OPT \
-    $SKIP_ANCILLARY_OPT \
-    $AGGREGATE_OPT \
-    $ZIP_OPT \
-    $SKIP_ALGORITHM_OPT \
-    $NO_DUMMY_OPT \
-    $SDR_ENDIANNESS_OPT \
-    $ANC_ENDIANNESS_OPT \
-    $DEBUG_OPT \
-    $CHAIN_OPT \
+    $TOPO_FILE_OPT \
+    $INSTR_OPT \
+    $RETR_MTHD_OPT \
     $PROC_OPT \
+    $DEBUG_OPT \
     $VERBOSITY_OPT -vv
 
 ##############################

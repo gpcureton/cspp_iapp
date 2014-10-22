@@ -1,11 +1,11 @@
 #!/bin/bash
-# $Id: cspp_edr_runtime.sh 2139 2014-06-19 19:30:09Z scottm $
+# $Id$
 # Contains some package specific setup.
 #
 # Copyright 2011-2013, University of Wisconsin Regents.
 # Licensed under the GNU GPLv3.
 
-test -n "$CSPP_EDR_HOME" || echo "CSPP_EDR_HOME is not set. Please set this environment variable to the install location of CSPP software packages. (When installed, \$CSPP_EDR_HOME/ADL is a directory.)"
+test -n "$CSPP_IAPP_HOME" || echo "CSPP_IAPP_HOME is not set. Please set this environment variable to the install location of CSPP software packages."
 
 
 # the adl-common.py module will assign defaults
@@ -45,7 +45,7 @@ then
 
 fi
 
-export DCONFIG=${CSPP_EDR_HOME}/common/cspp_cfg/cfg
+export DCONFIG=${CSPP_IAPP_HOME}/common/cspp_cfg/cfg
 
 
 if [ ! -z "${DCONFIG}" ];
@@ -54,13 +54,15 @@ then
 
 fi
 
+export JPSS_REMOTE_ANC_DIR='ftp://ftp.ssec.wisc.edu/pub/eosdb/ancillary'
+
 if [ ! -z "${JPSS_REMOTE_ANC_DIR}" ];
 then
      echo "Warning overridden default: JPSS_REMOTE_ANC_DIR="${JPSS_REMOTE_ANC_DIR}
 fi
 
 
-export DPE_VER=CSPP_EDR_2_0
+export DPE_VER=CSPP_IAPP_1_0
 
 #
 # derived CSPP default locations (site installs may move these under some circumstances)
@@ -72,10 +74,10 @@ export DPE_VER=CSPP_EDR_2_0
 #
 
 # python interpreter including numpy, h5py, pytables, scipy; used by CSPP scripts
-export PY=${CSPP_EDR_HOME}/common/ShellB3/bin/python
+export PY=${CSPP_IAPP_HOME}/common/ShellB3/bin/python
 
 # common modules location used by CSPP scripts
-export PYTHONPATH=$CSPP_EDR_HOME/common:${CSPP_EDR_HOME}/viirs
+export PYTHONPATH=$CSPP_IAPP_HOME/common:${CSPP_IAPP_HOME}/iapp
 
 #environment cleanups
 unset LD_PRELOAD
@@ -97,6 +99,7 @@ ulimit -d unlimited
 
 # insurance
 
-export LD_LIBRARY_PATH=${CSPP_EDR_HOME}/common/ADL/lib:${CSPP_EDR_HOME}/common/local/lib64:${CSPP_EDR_HOME}/common/local/lib
+#export LD_LIBRARY_PATH=${CSPP_IAPP_HOME}/common/IAPP_VENDOR/:${CSPP_IAPP_HOME}/common/local/lib64:${CSPP_IAPP_HOME}/common/local/lib
+export LD_LIBRARY_PATH=${CSPP_IAPP_HOME}/common/IAPP_VENDOR
 
 
