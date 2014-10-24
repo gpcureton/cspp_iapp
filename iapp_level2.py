@@ -72,7 +72,7 @@ import shlex, subprocess
 from subprocess import CalledProcessError, call
 from shutil import rmtree,copyfile,move
 from glob import glob
-from time import time
+from time import time,sleep
 from datetime import datetime,timedelta
 
 import numpy as np
@@ -236,110 +236,21 @@ def _fuse(*exps):
     return '|'.join(r'(?:%s)' % x for x in exps)
 
 
-def _granulate_ANC(inDir,geoDicts,algList,dummy_granule_dict):
-    '''Granulates the input gridded blob files into the required ANC granulated datasets.'''
-
-    ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'viirs')
-
-
-    # Download the required NCEP grib files
-    LOG.info("Downloading NCEP GRIB ancillary into cache...")
-    gribFiles = ANC.retrieve_NCEP_grib_files(geoDicts)
-    LOG.debug('dynamic ancillary GRIB files: %s' % repr(gribFiles))
-    if (gribFiles == []) :
-        LOG.error('Failed to find or retrieve any GRIB files, aborting.')
-        sys.exit(1)
-
-    # Loop through the required ANC datasets and create the blobs.
-    granIdKey = lambda x: (x['N_Granule_ID'])
-    for dicts in sorted(geoDicts,key=granIdKey):
-        for shortName in collectionShortNames :
-        
-            LOG.info("Processing dataset %s for %s" % (ANC_objects[shortName].blobDatasetName,shortName))
-
-            # Set the geolocation information in this ancillary object for the current granule...
-            ANC_objects[shortName].setGeolocationInfo(dicts)
-
-            # Granulate the gridded data in this ancillary object for the current granule...
-            ANC_objects[shortName].granulate(ANC_objects)
-
-            # Shipout the granulated data in this ancillary object to a blob/asc pair.
-            URID = ANC_objects[shortName].shipOutToFile()
-
-            # If this granule ID is in the list of dummy IDs, add this URID to the 
-            # dummy_granule_dict dictionary.
-            N_Granule_ID = dicts['N_Granule_ID']
-            if N_Granule_ID in dummy_granule_dict.keys():
-                try :
-                    dummy_granule_dict[N_Granule_ID][shortName] = None
-                except :
-                    dummy_granule_dict[N_Granule_ID] = {shortName:None}
-
-                dummy_granule_dict[N_Granule_ID][shortName] = URID
-                
-    return dummy_granule_dict
-
-
 def __cleanup(work_dir, dirs_to_remove):
     '''
-    Remove radiometric, geolocation and ancillary blob/asc pairs, and product HDF5
-    files that correspond to the dummy values of N_Granule_ID.
+    Remove runfiles and the executable logfiles.
     '''
-    # Remove SDR asc/blob file pairs
-    LOG.info("Removing SDR blob/asc file pairs...")
-    sdr_glob = path.join(work_dir,"*.VIIRS-[MI][1-9]*-SDR")
-    geo_glob = path.join(work_dir,"*.VIIRS-[MI]*-GEO*")
-    blobFiles = glob(sdr_glob) + glob(geo_glob)
-    if blobFiles != [] :
-        for blobFile in blobFiles:
-            blobDir = path.dirname(blobFile)
-            URID = string.split(path.basename(blobFile),".")[0]
-            ascFile = path.join(blobDir,"{}.asc".format(URID))
-            try:
-                LOG.debug('Removing {}'.format(blobFile))
-                os.unlink(blobFile)
-            except Exception, err:
-                LOG.warn( "{}".format(str(err)))
-            try:
-                LOG.debug('Removing {}'.format(ascFile))
-                os.unlink(ascFile)
-            except Exception, err:
-                LOG.warn( "{}".format(str(err)))
 
-    # Remove ANC and GridIP asc/blob file pairs
-    LOG.info("Removing ANC and GridIP blob/asc file pairs...")
-    anc_glob = path.join(work_dir,"*.VIIRS-ANC*")
-    gridIP_glob = path.join(work_dir,"*.VIIRS-GridIP*")
-    blobFiles = glob(anc_glob) + glob(gridIP_glob)
-    if blobFiles != [] :
-        for blobFile in blobFiles:
-            blobDir = path.dirname(blobFile)
-            URID = string.split(path.basename(blobFile),".")[0]
-            ascFile = path.join(blobDir,"{}.asc".format(URID))
-            try:
-                LOG.debug('Removing {}'.format(blobFile))
-                os.unlink(blobFile)
-            except Exception, err:
-                LOG.warn( "{}".format(str(err)))
-            try:
-                LOG.debug('Removing {}'.format(ascFile))
-                os.unlink(ascFile)
-            except Exception, err:
-                LOG.warn( "{}".format(str(err)))
-
-    # Remove all other asc/blob pairs (usually products).
-    LOG.info("Remove all other asc/blob pairs (usually products)...")
-    ascBlobFiles = glob(path.join(work_dir, '????????-?????-????????-????????.*'))
-    if ascBlobFiles != [] :
-        for ascBlobFile in ascBlobFiles:
-            try:
-                LOG.debug('Removing {}'.format(ascBlobFile))
-                os.unlink(ascBlobFile)
-            except Exception, err:
-                LOG.warn( "{}".format(str(err)))
+    # Remove runfile
+    runfile = path.join(work_dir,'iapp.filenames')
+    LOG.debug('Removing {}'.format(runfile))
+    try :
+        os.unlink(runfile)
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
 
     # Remove log directory
-    LOG.info("Removing other directories ...")
+    LOG.debug("Removing other directories ...")
     for dirname in dirs_to_remove:
         fullDirName = path.join(work_dir,dirname)
         LOG.debug('Removing {}'.format(fullDirName))
@@ -555,6 +466,21 @@ def check_exe(exeName):
         sys.exit(1)
 
 
+def link_iapp_coeffs(work_dir):
+    IAPP_COEFFS_DIR = path.abspath(path.join(IAPP_HOME,'iapp','iapp_coefs'))
+    LOCAL_COEFFS_DIR = path.abspath(path.join(path.dirname(work_dir),'iapp_coefs'))
+    LOG.debug("Remote IAPP coeffs directory: {}".format(IAPP_COEFFS_DIR))
+    LOG.debug("Local IAPP coeffs directory: {}".format(LOCAL_COEFFS_DIR))
+
+    if not path.exists(LOCAL_COEFFS_DIR):
+        LOG.debug("Creating the link {} -> {}"
+                .format(LOCAL_COEFFS_DIR,asc_file))
+        os.symlink(IAPP_COEFFS_DIR, LOCAL_COEFFS_DIR)
+    else:
+        LOG.debug('{} already exists; continuing'
+                .format(LOCAL_COEFFS_DIR))
+
+
 def create_retrieval_netcdf_template(work_dir):
     '''Create the template NetCDF file uwretrievals.nc'''
 
@@ -618,7 +544,7 @@ def create_retrieval_netcdf_template(work_dir):
             .format(netcdf_template_file))
 
 
-def run_iapp_exe(work_dir,log_dir):
+def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
     '''Run the IAPP executable'''
 
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
@@ -663,7 +589,7 @@ def run_iapp_exe(work_dir,log_dir):
 
         # TODO : On error, jump to a cleanup routine
         if not (procRetVal == 0) :
-            LOG.error('Creating NetCDF template file {} failed, aborting...'
+            LOG.error('Running IAPP main failed, aborting...'
                     .format(netcdf_template_file))
             sys.exit(procRetVal)
 
@@ -672,9 +598,105 @@ def run_iapp_exe(work_dir,log_dir):
         LOG.debug(traceback.format_exc())
 
 
-    LOG.info('New NetCDF retrieval file successfully created: {}'
+    LOG.info('IAPP completed successfully created: {}'
             .format(netcdf_template_file))
 
+    # Rename the output NetCDF file
+    timeObj = Level1D_obj.timeObj_start
+    dateStamp = timeObj.strftime("%Y%m%d")
+    seconds = repr(int(round(timeObj.second + float(timeObj.microsecond)/1000000.)))
+    deciSeconds = int(round(float(timeObj.microsecond)/100000.))
+    deciSeconds = repr(0 if deciSeconds > 9 else deciSeconds)
+    startTimeStamp = "%s%s" % (timeObj.strftime("%H%M%S"),deciSeconds)
+
+    timeObj = Level1D_obj.timeObj_end
+    seconds = repr(int(round(timeObj.second + float(timeObj.microsecond)/1000000.)))
+    deciSeconds = int(round(float(timeObj.microsecond)/100000.))
+    deciSeconds = repr(0 if deciSeconds > 9 else deciSeconds)
+    endTimeStamp = "%s%s" % (timeObj.strftime("%H%M%S"),deciSeconds)
+
+    timeObj = datetime.utcnow()
+    creationTimeStamp = timeObj.strftime("%Y%m%d%H%M%S%f")
+
+    iapp_retrieval_netcdf = "{}_L2_d{}_t{}_e{}_c{}_iapp.nc".format(
+            options.satellite,
+            dateStamp,
+            startTimeStamp,
+            endTimeStamp,
+            creationTimeStamp)
+
+
+    LOG.debug('Moving {} to {}...'.format(
+        netcdf_template_file,iapp_retrieval_netcdf
+        ))
+    move(netcdf_template_file,iapp_retrieval_netcdf)
+
+    return iapp_retrieval_netcdf
+
+
+def run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir):
+    '''Run the IAPP executable'''
+
+    IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
+
+    netcdf_template_file = '{}/uwretrievals.nc'.format(work_dir)
+    if not path.exists(netcdf_template_file):
+        LOG.error('{} can not be found, aborting.'.format(netcdf_template_file))
+        sys.exit(1)
+
+    # Set up the logging
+    d = datetime.now()
+    timestamp = d.isoformat()
+    logname= "iapp_main."+timestamp+".log"
+    logpath= path.join(log_dir, logname )
+    logfile_obj = open(logpath,'w')
+
+    try :
+        # Call the transcoding script, writing the logging output to a file
+        LOG.info('Populating NetCDF template file {} ...'.format(netcdf_template_file))
+        sleep(2)
+
+        logfile_obj.close()
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+
+    LOG.info('IAPP completed successfully created: {}'
+            .format(netcdf_template_file))
+
+    # Rename the output NetCDF file
+    timeObj = Level1D_obj.timeObj_start
+    dateStamp = timeObj.strftime("%Y%m%d")
+    seconds = repr(int(round(timeObj.second + float(timeObj.microsecond)/1000000.)))
+    deciSeconds = int(round(float(timeObj.microsecond)/100000.))
+    deciSeconds = repr(0 if deciSeconds > 9 else deciSeconds)
+    startTimeStamp = "%s%s" % (timeObj.strftime("%H%M%S"),deciSeconds)
+
+    timeObj = Level1D_obj.timeObj_end
+    seconds = repr(int(round(timeObj.second + float(timeObj.microsecond)/1000000.)))
+    deciSeconds = int(round(float(timeObj.microsecond)/100000.))
+    deciSeconds = repr(0 if deciSeconds > 9 else deciSeconds)
+    endTimeStamp = "%s%s" % (timeObj.strftime("%H%M%S"),deciSeconds)
+
+    timeObj = datetime.utcnow()
+    creationTimeStamp = timeObj.strftime("%Y%m%d%H%M%S%f")
+
+    iapp_retrieval_netcdf = "{}_L2_d{}_t{}_e{}_c{}_dummy.nc".format(
+            options.satellite,
+            dateStamp,
+            startTimeStamp,
+            endTimeStamp,
+            creationTimeStamp)
+
+
+    LOG.debug('Moving {} to {}...'.format(
+        netcdf_template_file,iapp_retrieval_netcdf
+        ))
+    move(netcdf_template_file,iapp_retrieval_netcdf)
+
+    return iapp_retrieval_netcdf
 
 def _argparse():
     '''
@@ -945,14 +967,29 @@ def main():
     # Generate template netcdf retrieval file
     create_retrieval_netcdf_template(work_dir)
 
-    # TODO: Check that the coefficient files are in the right place, which is 
-    # TODO: in the directory above the run directory. This should be a softlink, which 
-    # TODO: will be deleted after the run.
+    # Create a link to the IAPP coefficient dir
+    link_iapp_coeffs(work_dir)
 
     # Run the IAPP executable
-    run_iapp_exe(work_dir,log_dir)
+    t1 = time()
 
-    # TODO: Add some timing information 
+    #iapp_retrieval_netcdf = run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir)
+    iapp_retrieval_netcdf = run_iapp_exe(options,Level1D_obj,work_dir,log_dir)
+    
+    t2 = time()
+    LOG.info("iapp_main ran in {} seconds.".format(t2-t1))
+
+    # General Cleanup...
+    if not options.cspp_debug:
+        __cleanup(work_dir, [log_dir])
+
+    # TODO: Work out a sensible return code scheme.
+
+    #if rc == 0 and not options.cspp_debug:
+    #try :
+        #return rc
+    #except :
+        #return 0
 
 
 if __name__=='__main__':
