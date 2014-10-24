@@ -91,13 +91,15 @@
 #
 # ------------------------------------------------------------------------------------------
 
-#export PATH=/usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:$HOME/bin:.
+export PATH=/usr/local/bin:/usr/bin:/bin:/usr/X11R6/bin:$HOME/bin:.
 
 ##################################
-#bdir=/home/chial/Hal_iapp/decoders/bin
-#ndir=/opt/netcdf-3.6-gfortran/bin
-bdir=$DECODERS/bin
-ndir=/usr/bin
+# bdir=/home/chial/Hal_iapp/decoders/bin
+# ndir=/opt/netcdf-3.6-gfortran/bin
+##################################
+bdir=$IAPP_DECODERS_PATH/bin
+ndir=$NCGEN_PATH
+#ndir=/usr/bin
 ##################################
 
  
@@ -109,7 +111,7 @@ iapp_bin2nc=$bdir/iapp_bin2nc
 # Check for correct number of arguments
 # -------------------------------------
 
-  if [ $# -ne 3 ]; then
+  if [ $# -ne 2 ]; then
 
     echo
     echo 'Usage: iapp_grib2nc <grib_input> <cdl_input>'
@@ -139,8 +141,6 @@ iapp_bin2nc=$bdir/iapp_bin2nc
     echo 'CDL file '${cdl_file}' not found'
     exit 1
   fi
-
-  nc_file_cm=$3
 
 # ----------------------------------------------
 # Check that we have the correct grid dimensions
@@ -185,8 +185,7 @@ iapp_bin2nc=$bdir/iapp_bin2nc
 # -------------------------------
 
   out_file='ancillary.data'
-  #nc_file='iapp_ancillary_'${grib_date}'-'${grib_forecast}'.nc'
-  nc_file=$nc_file_cm
+  nc_file='iapp_ancillary_'${grib_date}'-'${grib_forecast}'.nc'
 
 # ------------------------------------
 # Extract the selected GRIB parameters
@@ -234,6 +233,8 @@ iapp_bin2nc=$bdir/iapp_bin2nc
       exit 1
     fi
 
+    echo "Successfully created ancillary data file: "$(readlink -f "$out_file")
+
   done
 
   echo 'Number of parameters extracted = '${n_grib_parameters}
@@ -267,6 +268,8 @@ iapp_bin2nc=$bdir/iapp_bin2nc
     exit 1
   fi
 
+echo "Successfully created ancillary info file: "$(readlink -f "$info_file")
+
 # ---------------------------------------
 # Create an empty netCDF file using ncgen
 # ---------------------------------------
@@ -288,9 +291,12 @@ ${out_file}
 ${nc_file}
 EOF
 
+
   if [ $? -ne 0 ]; then
     echo 'Error writing to netCDF file '${nc_file}
     exit 1
+  else
+    echo "Successfully transcoded to NetCDF file: "$nc_file
   fi
 
 # -----------------

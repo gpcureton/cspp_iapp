@@ -91,6 +91,7 @@ from adl_common import CSPP_RT_HOME, CSPP_RT_ANC_PATH, CSPP_RT_ANC_CACHE_DIR
 from adl_common import IAPP_HOME
 
 from ANC import retrieve_NCEP_grib_files, transcode_NCEP_grib_files
+from ANC import retrieve_METAR_files, transcode_METAR_files
 
 # every module should have a LOG object
 sourcename= file_Id.split(" ")
@@ -560,9 +561,6 @@ def create_retrieval_netcdf_template(work_dir):
     NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
     CDL_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','cdlfiles'))
 
-    # Check that we have access to the ncgen...
-    check_exe('ncgen')
-
     # Check that we have access to the NetCDF generation exe...
     scriptPath = "{}/ncgen".format(NCGEN_PATH)
     if not path.exists(scriptPath):
@@ -584,7 +582,7 @@ def create_retrieval_netcdf_template(work_dir):
             )
 
     try :
-        # Call the transcoding script, writing the logging output to a file
+        # Call the NetCDF template generation exe, writing the logging output to a file
         LOG.info('Creating NetCDF template file {} ...'.format(netcdf_template_file))
         cmdStr = '{} {}'.format(scriptPath,script_args)
         LOG.debug('\t{}'.format(cmdStr))
@@ -626,13 +624,8 @@ def run_iapp_exe(work_dir,log_dir):
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
 
 
-    # Check that we have access to the GRIB retrieval scripts...
+    # Check that we have access to the IAPP main exe...
     scriptPath = "{}/iapp_main".format(IAPP_EXE_PATH)
-    LOG.debug("IAPP Executable : {}".format(scriptPath))
-
-    # Check that we have access to the ncgen...
-    check_exe(scriptPath)
-
     if not path.exists(scriptPath):
         LOG.error('{} can not be found, aborting.'.format(scriptPath))
         sys.exit(1)
@@ -916,19 +909,28 @@ def main():
     # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
     grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0],work_dir,log_dir)
 
+    GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
+    LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
+
+    # Retrieve the METAR Surface Observation ancillary data...
+    metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
+    LOG.info('Retrieved METAR files: {}'.format(metarFiles))
+
+    # Transcode METAR ancillary data to NetCDF
+    metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
+    LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+
     # Set up some path variables
     LOG.info('VENDOR Location: {}'.format(IAPP_HOME))
     NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
     LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
-    GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
-    LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
 
     # Create the runfile
     template_dict = {}
     template_dict['level1d_file'] = path.abspath(options.inputFiles)
     template_dict['topography_file'] = path.join(NETCDF_FILES_PATH,'topography.nc')
     template_dict['gdas_gfs_netcdf_file'] = grib_netcdf_file
-    template_dict['metar_file'] = glob(path.join(work_dir,'METAR*.nc'))[0]
+    template_dict['metar_file'] = metar_netcdf_file
     template_dict['radiosonde_file'] = ''
     template_dict['retrieval_method'] = 1
     template_dict['print_option'] = 0

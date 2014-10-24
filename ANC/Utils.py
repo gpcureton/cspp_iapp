@@ -31,6 +31,7 @@ from numpy import ma
 import shlex, subprocess
 from subprocess import CalledProcessError, call
 from shutil import rmtree,copyfile,move
+from glob import glob
 
 import pygrib
 
@@ -344,30 +345,37 @@ def retrieve_NCEP_grib_files(Level1D_obj):
 
 def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
 
-    IAPP_SCRIPTS_PATH=path.abspath(path.join(IAPP_HOME,'decoders','bin'))
+    IAPP_DECODERS_PATH=path.abspath(path.join(IAPP_HOME,'decoders'))
+    LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
+
+    IAPP_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp')
     LOG.debug('IAPP_SCRIPTS_PATH : {}'.format(IAPP_SCRIPTS_PATH))
+
     IAPP_FILES_PATH=path.abspath(path.join(IAPP_HOME,'decoders','files'))
     LOG.debug('IAPP_FILES_PATH : {}'.format(IAPP_FILES_PATH))
+    
     NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
-    LOG.debug('IAPP_FILES_PATH : {}'.format(IAPP_FILES_PATH))
+    LOG.debug('NCGEN_PATH : {}'.format(NCGEN_PATH))
+    
     GRIB_FILE_PATH=path.abspath(path.dirname(grib1_file))
     LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
 
-    # Check that we have access to the c-shell...
-    check_exe('ksh')
-    check_exe('ncgen')
 
-    # Check that we have access to the GRIB retrieval scripts...
+    # Check that we have access to the c-shell...
+    #check_exe('ksh')
+    #check_exe('ncgen')
+
+    # Check that we have access to the transcoding script...
     scriptNames = [
-                   'iapp_grib2nc.ksh'
+                   'iapp_grib1_to_netcdf.ksh'
                   ]
     for scriptName in scriptNames:
         scriptPath = path.join(IAPP_SCRIPTS_PATH,scriptName)
-        LOG.debug('Checking {}...'.format(scriptPath))
+        LOG.debug('Checking {} ...'.format(scriptPath))
         if not path.exists(scriptPath):
             LOG.error('GRIB transcoding script {} can not be found, aborting.'
                     .format(scriptPath))
-            #sys.exit(1)
+            sys.exit(1)
 
     # Set up the logging
     d = datetime.now()
@@ -391,9 +399,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         procRetVal = 0
         procObj = subprocess.Popen(args,
                 env=env(
-                    CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,
-                    CSPP_RT_HOME=CSPP_RT_HOME,
-                    JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR,
+                    IAPP_DECODERS_PATH=IAPP_DECODERS_PATH,
                     NCGEN_PATH=NCGEN_PATH
                     ),
                 bufsize=0, stdout=logfile_obj, stderr=subprocess.STDOUT)
@@ -429,15 +435,18 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
             LOG.error('New NetCDF file creation failed, aborting...')
             sys.exit(1)
         else:
-            LOG.debug('New NetCDF file {} exits'.format(grib_netcdf_local_file))
+            LOG.debug('New local NetCDF file {} exists'.format(grib_netcdf_local_file))
 
-        if not path.exists(grib_netcdf_remote_file):
-            LOG.debug('Moving {} to {}...'.format(
-                grib_netcdf_local_file,grib_netcdf_remote_file
-                ))
-            move(grib_netcdf_local_file,grib_netcdf_remote_file)
-        else:
-            LOG.debug('Remote NetCDF file {} exits...'.format(grib_netcdf_remote_file))
+        # Check for remote NetCDF file, and remove if it exists
+        if path.exists(grib_netcdf_remote_file):
+            LOG.debug('Remote NetCDF file {} exists, removing...'.format(grib_netcdf_remote_file))
+            os.unlink(grib_netcdf_remote_file)
+
+        # Move the new NetCDF file to the ancillary cache
+        LOG.debug('Moving {} to {}...'.format(
+            grib_netcdf_local_file,grib_netcdf_remote_file
+            ))
+        move(grib_netcdf_local_file,grib_netcdf_remote_file)
 
         # Remove the temporary NetCDF generation files
         for files in ['ancillary.data','ancillary.info','gribparm.lis']:
@@ -454,90 +463,175 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
     return grib_netcdf_remote_file
 
 
-def transcode_METAR_grib_files(grib1_fle):
+def retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH):
+    ''' Retrieve the METAR Surface Observation ancillary data which 
+    cover the dates of the geolocation files.'''
 
-    NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
+    LOG.info('Retrieving METAR Surface Observation ancillary data for {}...'
+            .format(Level1D_obj.input_file))
 
-    LOG.debug('ncgen : {}'.format(NC_GEN))
+    # Get the time stamp for the input file
+    dateStamp = Level1D_obj.timeObj_start.strftime("%Y%m%d")
+
+    timeObj = datetime.utcnow()
+    now_time_stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+
+    LOG.debug('JPSS_REMOTE_ANC_DIR: {}'.format(JPSS_REMOTE_ANC_DIR))
 
     try :
-        LOG.info('Transcoding METAR file {} to NetCDF...'.format(grib1_fle))
-        cmdStr = '{} {}'.format(scriptPath,script_args)
-        LOG.debug('\t{}'.format(cmdStr))
-        args = shlex.split(cmdStr)
-
-        procRetVal = 0
-        procObj = subprocess.Popen(args, \
-                env=env(CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,CSPP_RT_HOME=CSPP_RT_HOME, \
-                JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR), \
-                bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        procObj.wait()
-        procRetVal = procObj.returncode
-
-        procOutput = procObj.stdout.readlines()
-
-        for lines in procOutput:
-            LOG.debug(lines)
-            if "GDAS/GFS file" in lines :
-                lines = string.replace(lines,'GDAS/GFS file: ','')
-                lines = string.replace(lines,'\n','')
-                gribFiles.append(lines)
-
-        # TODO : On error, jump to a cleanup routine
-        if not (procRetVal == 0) :
-            LOG.error('Retrieval of ancillary files failed for {}.'
-                    .format(Level1D_obj.pass_mid_str))
-            #sys.exit(procRetVal)
+        LOG.info('Retrieving METAR files for {} ...'
+                .format(Level1D_obj.pass_mid_str))
+        metarFiles = glob(path.join(GRIB_FILE_PATH,'METAR*'))
 
     except Exception, err:
         LOG.warn( "{}".format(str(err)))
         LOG.debug(traceback.format_exc())
 
-def plotArr(data,pngName):
-    '''
-    Plot the input array, with a colourbar.
-    '''
+    ## Uniqify the list of METAR files
+    metarFiles = list(set(metarFiles))
+    metarFiles.sort()
 
-    plotTitle =  string.replace(pngName,".png","")
-    cbTitle   =  "Value"
-    #vmin,vmax =  0,1
-    vmin,vmax =  None,None
+    for metarFile in metarFiles :
+        LOG.info('Retrieved METAR file: {}'.format(metarFiles))
 
-    # Create figure with default size, and create canvas to draw on
-    scale=1.5
-    fig = Figure(figsize=(scale*8,scale*3))
-    canvas = FigureCanvas(fig)
+    return metarFiles
 
-    # Create main axes instance, leaving room for colorbar at bottom,
-    # and also get the Bbox of the axes instance
-    ax_rect = [0.05, 0.18, 0.9, 0.75  ] # [left,bottom,width,height]
-    ax = fig.add_axes(ax_rect)
 
-    # Granule axis title
-    ax_title = ppl.setp(ax,title=plotTitle)
-    ppl.setp(ax_title,fontsize=12)
-    ppl.setp(ax_title,family="sans-serif")
+def transcode_METAR_files(metar_file,work_dir,log_dir):
 
-    # Plot the data
-    data = ma.masked_less(data,-800.)
-    im = ax.imshow(data,axes=ax,interpolation='nearest',vmin=vmin,vmax=vmax)
+    IAPP_DECODERS_PATH=path.abspath(path.join(IAPP_HOME,'decoders','bin'))
+    LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
+
+    IAPP_FILES_PATH=path.abspath(path.join(IAPP_HOME,'decoders','files'))
+    LOG.debug('IAPP_FILES_PATH : {}'.format(IAPP_FILES_PATH))
     
-    # add a colorbar axis
-    cax_rect = [0.05 , 0.05, 0.9 , 0.10 ] # [left,bottom,width,height]
-    cax = fig.add_axes(cax_rect,frameon=False) # setup colorbar axes
+    NCGEN_PATH=path.abspath(path.join(CSPP_RT_HOME,'common','ShellB3','bin'))
+    LOG.debug('NCGEN_PATH : {}'.format(NCGEN_PATH))
+    
+    METAR_FILE_PATH=path.abspath(path.dirname(metar_file))
+    LOG.debug('METAR_FILE_PATH : {}'.format(METAR_FILE_PATH))
 
-    # Plot the colorbar.
-    cb = fig.colorbar(im, cax=cax, orientation='horizontal')
-    ppl.setp(cax.get_xticklabels(),fontsize=9)
+    # Set up the logging
+    d = datetime.now()
+    timestamp = d.isoformat()
+    logname= "iapp_metar_to_nc."+timestamp+".log"
+    logpath= path.join(log_dir, logname )
+    logfile_obj = open(logpath,'w')
 
-    # Colourbar title
-    cax_title = ppl.setp(cax,title=cbTitle)
-    ppl.setp(cax_title,fontsize=9)
+    # Check that we have access to the NetCDF generation exe...
+    scriptPath = "{}/ncgen".format(NCGEN_PATH)
+    if not path.exists(scriptPath):
+        LOG.error('{} can not be found, aborting.'.format(scriptPath))
+        sys.exit(1)
 
-    # Redraw the figure
-    canvas.draw()
+    # Construct the command line args to ncgen
+    metar_netcdf_file = "{}.nc".format(metar_file)
+    script_args = '-b {}/metar_grid.cdl -o {}'.format(
+            IAPP_FILES_PATH,
+            metar_netcdf_file
+            )
 
-    # save image 
-    canvas.print_figure(pngName,dpi=200)
+    try :
+        # Check for existing METAR NetCDF file, and remove if it exists
+        if path.exists(metar_netcdf_file):
+            LOG.debug(' METAR NetCDF file {} exists, removing...'
+                    .format(metar_netcdf_file))
+            os.unlink(metar_netcdf_file)
 
+        # Call the NetCDF template generation exe, writing the logging output to a file
+        LOG.info('Creating NetCDF template file {} ...'.format(metar_netcdf_file))
+        cmdStr = '{} {}'.format(scriptPath,script_args)
+        LOG.debug('\t{}'.format(cmdStr))
+        args = shlex.split(cmdStr)
+
+        procRetVal = 0
+        procObj = subprocess.Popen(args,
+                env=env(
+                    NCGEN_PATH=NCGEN_PATH
+                    ),
+                bufsize=0, stdout=logfile_obj, stderr=subprocess.STDOUT)
+        procObj.wait()
+        procRetVal = procObj.returncode
+
+
+        # TODO : On error, jump to a cleanup routine
+        if not (procRetVal == 0) :
+            LOG.error('Creating NetCDF template file {} failed, aborting...'
+                    .format(metar_netcdf_file))
+            sys.exit(procRetVal)
+
+        LOG.info('New NetCDF file successfully created: {}'.format(metar_netcdf_file))
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+
+    # Get the METAR time information
+    metar_year_jday_str = string.split(path.basename(metar_netcdf_file),'.')[1]
+    LOG.debug('metar_year_jday_str : {}'.format(metar_year_jday_str))
+
+    metar_UTC_str = string.split(path.basename(metar_netcdf_file),'.')[2]
+    LOG.debug('metar_UTC_str : {}'.format(metar_UTC_str))
+    
+    metar_timeObj = datetime.strptime(
+            "{}.{}".format(metar_year_jday_str,metar_UTC_str),
+            '%y%j.%H%M')
+
+    metar_time_str = metar_timeObj.strftime("%Y-%m-%d %H:%M:%S.%f")
+    LOG.debug("metar_time_str: {}".format(metar_time_str))
+
+    metar_year_str = metar_timeObj.strftime("%y")
+    LOG.debug('metar_year_str : {}'.format(metar_year_str))
+
+    metar_month_str = metar_timeObj.strftime("%m")
+    LOG.debug('metar_month_str : {}'.format(metar_month_str))
+
+    # Check that we have access to the NetCDF generation exe...
+    scriptPath = "{}/drvmetar".format(IAPP_DECODERS_PATH)
+    if not path.exists(scriptPath):
+        LOG.error('{} can not be found, aborting.'.format(scriptPath))
+        sys.exit(1)
+
+    # Construct the command line args to drvmetar
+    station_ident_file = path.join(IAPP_FILES_PATH,'sfmetar_sa.tbl')
+    script_args = '{} {} {} {}'.format(
+            metar_file,
+            metar_year_str,
+            metar_month_str,
+            station_ident_file
+            )
+
+    try :
+        # Call the METAR to NetCDF transcoding exe, writing the logging output to a file
+        LOG.info('Creating METAR NetCDF file {} ...'.format(metar_netcdf_file))
+        cmdStr = '{} {}'.format(scriptPath,script_args)
+        LOG.debug('\t{}'.format(cmdStr))
+        args = shlex.split(cmdStr)
+
+        procRetVal = 0
+        procObj = subprocess.Popen(args,
+                env=env(
+                    IAPP_DECODERS_PATH=IAPP_DECODERS_PATH,
+                    ),
+                bufsize=0, stdout=logfile_obj, stderr=subprocess.STDOUT)
+        procObj.wait()
+        procRetVal = procObj.returncode
+
+
+        # TODO : On error, jump to a cleanup routine
+        if not (procRetVal == 0) :
+            LOG.error('Creating NetCDF template file {} failed, aborting...'
+                    .format(metar_netcdf_file))
+            sys.exit(procRetVal)
+
+        LOG.info('New NetCDF file successfully created: {}'.format(metar_netcdf_file))
+
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        LOG.debug(traceback.format_exc())
+
+    logfile_obj.close()
+
+    return metar_netcdf_file
 
