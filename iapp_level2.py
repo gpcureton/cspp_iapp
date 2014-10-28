@@ -236,18 +236,19 @@ def _fuse(*exps):
     return '|'.join(r'(?:%s)' % x for x in exps)
 
 
-def __cleanup(work_dir, dirs_to_remove):
+def __cleanup(work_dir, files_to_remove, dirs_to_remove):
     '''
     Remove runfiles and the executable logfiles.
     '''
 
-    # Remove runfile
-    runfile = path.join(work_dir,'iapp.filenames')
-    LOG.debug('Removing {}'.format(runfile))
-    try :
-        os.unlink(runfile)
-    except Exception, err:
-        LOG.warn( "{}".format(str(err)))
+    # Remove files
+    for filename in files_to_remove:
+        fullFileName = path.join(work_dir,filename)
+        LOG.debug('Removing {}'.format(fullFileName))
+        try :
+            os.unlink(fullFileName)
+        except Exception, err:
+            LOG.warn( "{}".format(str(err)))
 
     # Remove log directory
     LOG.debug("Removing other directories ...")
@@ -376,35 +377,36 @@ class Level1D():
         start_day_of_year = self.header_field_data['Start_Data_Set_DOY']
         start_UTC_time_ms = self.header_field_data['Start_Data_Set_UTC_Time']
 
-        LOG.info("Start Dataset year: {}".format(start_year))
-        LOG.info("Start Dataset day_of_year: {}".format(start_day_of_year))
-        LOG.info("Start Dataset UTC_time_ms: {}".format(start_UTC_time_ms))
+        LOG.debug("Start Dataset year: {}".format(start_year))
+        LOG.debug("Start Dataset day_of_year: {}".format(start_day_of_year))
+        LOG.debug("Start Dataset UTC_time_ms: {}".format(start_UTC_time_ms))
 
         end_year = self.header_field_data['End_Data_Set_Year']
         end_day_of_year = self.header_field_data['End_Data_Set_DOY']
         end_UTC_time_ms = self.header_field_data['End_Data_Set_UTC_Time']
 
-        LOG.info("End Dataset year: {}".format(end_year))
-        LOG.info("End Dataset day_of_year: {}".format(end_day_of_year))
-        LOG.info("End Dataset UTC_time_ms: {}".format(end_UTC_time_ms))
+        LOG.debug("End Dataset year: {}".format(end_year))
+        LOG.debug("End Dataset day_of_year: {}".format(end_day_of_year))
+        LOG.debug("End Dataset UTC_time_ms: {}".format(end_UTC_time_ms))
 
         time_string = "{}-{}".format(start_year,start_day_of_year)
         timeObj_start = datetime.strptime(time_string, '%Y-%j')
         timeObj_start = timeObj_start + timedelta(milliseconds=start_UTC_time_ms)
         pass_start_str = timeObj_start.strftime("%Y-%m-%d %H:%M:%S.%f")
-        LOG.info("Pass start time: {}".format(pass_start_str))
 
         time_string = "{}-{}".format(end_year,end_day_of_year)
         timeObj_end = datetime.strptime(time_string, '%Y-%j')
         timeObj_end = timeObj_end + timedelta(milliseconds=end_UTC_time_ms)
         pass_end_str = timeObj_end.strftime("%Y-%m-%d %H:%M:%S.%f")
-        LOG.info("Pass end time: {}".format(pass_end_str))
 
         pass_length = (timeObj_end - timeObj_start).seconds
-        LOG.info("Pass length: {} seconds".format(pass_length))
         timeObj_mid = timeObj_start + timedelta(seconds=pass_length/2.)
         pass_mid_str = timeObj_mid.strftime("%Y-%m-%d %H:%M:%S.%f")
-        LOG.info("Pass mid time: {}".format(pass_mid_str))
+
+        LOG.info("Pass start time: {}".format(pass_start_str))
+        LOG.info("Pass mid time:   {}".format(pass_mid_str))
+        LOG.info("Pass end time:   {}".format(pass_end_str))
+        LOG.info("Pass length: {} seconds".format(pass_length))
 
         self.pass_start_str = pass_start_str
         self.pass_mid_str = pass_mid_str
@@ -466,7 +468,29 @@ def check_exe(exeName):
         sys.exit(1)
 
 
+def link_l1d_file(remote_l1d_file,work_dir):
+    '''Link the AAPP l1d file into the work directory'''
+
+    local_l1d_file = path.basename(remote_l1d_file)
+
+    LOG.debug("Remote L1D file: {}".format(remote_l1d_file))
+    LOG.debug("Local L1D file: {}".format(local_l1d_file))
+
+
+    if not path.exists(local_l1d_file):
+        LOG.debug("Creating the link {} -> {}"
+                .format(local_l1d_file,remote_l1d_file))
+        os.symlink(remote_l1d_file, local_l1d_file)
+    else:
+        LOG.debug('{} already exists; continuing'
+                .format(local_l1d_file))
+
+    return local_l1d_file
+
+
 def link_iapp_coeffs(work_dir):
+    '''Link the IAPP coefficients dir into the dir above the work dir'''
+
     IAPP_COEFFS_DIR = path.abspath(path.join(IAPP_HOME,'iapp','iapp_coefs'))
     LOCAL_COEFFS_DIR = path.abspath(path.join(path.dirname(work_dir),'iapp_coefs'))
     LOG.debug("Remote IAPP coeffs directory: {}".format(IAPP_COEFFS_DIR))
@@ -474,7 +498,7 @@ def link_iapp_coeffs(work_dir):
 
     if not path.exists(LOCAL_COEFFS_DIR):
         LOG.debug("Creating the link {} -> {}"
-                .format(LOCAL_COEFFS_DIR,asc_file))
+                .format(LOCAL_COEFFS_DIR,IAPP_COEFFS_DIR))
         os.symlink(IAPP_COEFFS_DIR, LOCAL_COEFFS_DIR)
     else:
         LOG.debug('{} already exists; continuing'
@@ -626,7 +650,7 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
             creationTimeStamp)
 
 
-    LOG.debug('Moving {} to {}...'.format(
+    LOG.info('Moving {} to {}...'.format(
         netcdf_template_file,iapp_retrieval_netcdf
         ))
     move(netcdf_template_file,iapp_retrieval_netcdf)
@@ -717,8 +741,8 @@ def _argparse():
                 'radiosonde_data_file':None,
                 'retrieval_method':1,
                 'print_retrieval':False,
+                'print_l1d_header':False,
                 'instrument_combo':4,
-                'processors':1,
                 'lower_latitude':0.,
                 'upper_latitude':0.,
                 'left_longitude':0.,
@@ -771,13 +795,40 @@ def _argparse():
                       [default: {}]'''.format(defaults['work_dir'])
                       )
     
-    parser.add_argument('-t','--topo_file',
+    parser.add_argument('-t','--topography_file',
                       action="store",
                       dest="topography_file",
                       type=str,
                       default=defaults['topography_file'],
                       help='''The topography file. 
                       [default: {}]'''.format(defaults['topography_file'])
+                      )
+    
+    parser.add_argument('-f','--forecast_file',
+                      action="store",
+                      dest="forecast_model_file",
+                      type=str,
+                      default=defaults['forecast_model_file'],
+                      help='''The GDAS/GFS forecast/analysis file (NetCDF format). 
+                      [default: {}]'''.format(defaults['forecast_model_file'])
+                      )
+    
+    parser.add_argument('-r','--radiosonde_file',
+                      action="store",
+                      dest="radiosonde_data_file",
+                      type=str,
+                      default=defaults['radiosonde_data_file'],
+                      help='''The radiosonde file. 
+                      [default: {}]'''.format(defaults['radiosonde_data_file'])
+                      )
+    
+    parser.add_argument('-s','--surface_obs_file',
+                      action="store",
+                      dest="surface_obsv_file",
+                      type=str,
+                      default=defaults['surface_obsv_file'],
+                      help='''The METAR surface observation file (NetCDF format). 
+                      [default: {}]'''.format(defaults['surface_obsv_file'])
                       )
     
     parser.add_argument('--instrument_combo',
@@ -837,20 +888,19 @@ def _argparse():
                       )
 
     parser.add_argument('--print_retrieval',
-                      action="store_false",
+                      action="store_true",
                       dest="print_retrieval",
                       default=defaults['print_retrieval'],
                       help='''Print the running output of the IAPP retrieval. 
                       [default: {}]'''.format(defaults['print_retrieval'])
                       )
 
-    parser.add_argument('-p','--processors',
-                      action="store",
-                      dest="processors",
-                      default=defaults['processors'],
-                      type=int,
-                      help='''Number of cpus to use for granule processing. 
-                      [default: {}]'''.format(defaults['processors'])
+    parser.add_argument('--print_l1d_header',
+                      action="store_true",
+                      dest="print_l1d_header",
+                      default=defaults['print_l1d_header'],
+                      help='''Print the level 1D header, and exit. 
+                      [default: {}]'''.format(defaults['print_l1d_header'])
                       )
 
     parser.add_argument('--debug',
@@ -904,8 +954,6 @@ def _argparse():
         LOG.debug('creating directory %s' % (log_dir))
         os.makedirs(log_dir)
 
-    print args
-
     return args,work_dir ,log_dir
 
 
@@ -924,6 +972,9 @@ def main():
     # Parse the level 1D file header
     Level1D_obj = Level1D(options.inputFiles)
 
+    if options.print_l1d_header:
+        return 0
+
     # Retrieve the required GRIB1 GDAS/GFS ancillary data...
     gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
     LOG.info('Retrieved GRIB files: {}'.format(gribFiles))
@@ -934,30 +985,39 @@ def main():
     GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
     LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
 
-    # Retrieve the METAR Surface Observation ancillary data...
-    metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
-    LOG.info('Retrieved METAR files: {}'.format(metarFiles))
+    # Specify the METAR surface observation file
+    if options.surface_obsv_file is None:
 
-    # Transcode METAR ancillary data to NetCDF
-    metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
-    LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+        # Retrieve the METAR Surface Observation ancillary data...
+        metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
+        LOG.info('Retrieved METAR files: {}'.format(metarFiles))
+
+        # Transcode METAR ancillary data to NetCDF
+        metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
+        LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+    else:
+        metar_netcdf_file = options.surface_obsv_file
+
 
     # Set up some path variables
     LOG.info('VENDOR Location: {}'.format(IAPP_HOME))
     NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
     LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
 
+    # Create a link to the AAPP L1D file in the work dir
+    local_l1d_file = link_l1d_file(path.abspath(options.inputFiles), work_dir)
+
     # Create the runfile
     template_dict = {}
-    template_dict['level1d_file'] = path.abspath(options.inputFiles)
+    template_dict['level1d_file'] = local_l1d_file
     template_dict['topography_file'] = path.join(NETCDF_FILES_PATH,'topography.nc')
     template_dict['gdas_gfs_netcdf_file'] = grib_netcdf_file
     template_dict['metar_file'] = metar_netcdf_file
     template_dict['radiosonde_file'] = ''
-    template_dict['retrieval_method'] = 1
-    template_dict['print_option'] = 0
+    template_dict['retrieval_method'] = options.retrieval_method
+    template_dict['print_option'] = 1 if options.print_retrieval else 0
     template_dict['satellite_name'] = options.satellite
-    template_dict['instrument_combo'] = 4
+    template_dict['instrument_combo'] = options.instrument_combo
     template_dict['retrieval_bounds'] = "{:1.0f}. {:1.0f}. {:1.0f}. {:1.0f}.".format(
             options.lower_latitude,options.upper_latitude,
             options.left_longitude,options.right_longitude)
@@ -981,7 +1041,7 @@ def main():
 
     # General Cleanup...
     if not options.cspp_debug:
-        __cleanup(work_dir, [log_dir])
+        __cleanup(work_dir,['iapp.filenames',local_l1d_file],[log_dir])
 
     # TODO: Work out a sensible return code scheme.
 
@@ -991,6 +1051,7 @@ def main():
     #except :
         #return 0
 
+    return 0
 
 if __name__=='__main__':
     sys.exit(main())  

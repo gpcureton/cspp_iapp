@@ -33,7 +33,7 @@ VERBOSITY_OPT=
 
 #echo $@
 
-OPTS=`getopt -o "i:s:w:t:p:dvh" -l "input_files:,satellite:,work_directory:,topo_file:,instrument_combo:,retrieval_method:,processors:,debug,verbose,help" -- "$@"`
+OPTS=`getopt -o "i:w:t:f:r:s:dvh" -l "input_files:,satellite:,work_directory:,topography_file:,forecast_file:,radiosonde_file:,surface_obs_file:,instrument_combo:,retrieval_method:,print_retrieval,print_l1d_header,debug,verbose,help" -- "$@"`
 
 # If returncode from getopt != 0, exit with error.
 if [ $? != 0 ]
@@ -59,7 +59,7 @@ do
             haveFlag=1
             shift 2;;
 
-        -s|--satellite)
+        --satellite)
             SAT_OPT="--satellite=$2"
             #echo "Setting SAT_OPT"
             haveFlag=1
@@ -71,29 +71,53 @@ do
             haveFlag=1
             shift 2;;
 
-        -t|--topo_file)
-            TOPO_FILE_OPT="--topo_file=$2"
+        -t|--topography_file)
+            TOPO_FILE_OPT="--topography_file=$2"
             #echo "Setting TOPO_FILE_OPT"
             haveFlag=1
             shift 2;;
 
+        -f|--forecast_file)
+            FORECAST_FILE_FILE_OPT="--forecast_file=$2"
+            #echo "Setting FORECAST_FILE_FILE_OPT"
+            haveFlag=1
+            shift 2;;
+
+        -r|--radiosonde_file)
+            RADIOSONDE_FILE_OPT="--radiosonde_file=$2"
+            #echo "Setting RADIOSONDE_FILE_OPT"
+            haveFlag=1
+            shift 2;;
+
+        -s|--surface_obs_file)
+            SURFACE_OBS_FILE_OPT="--surface_obs_file=$2"
+            #echo "Setting SURFACE_OBS_FILE_OPT"
+            haveFlag=1
+            shift 2;;
+
         --instrument_combo)
-            PROC_OPT="--instrument_combo=$2"
+            INSTR_OPT="--instrument_combo=$2"
             #echo "Setting INSTR_OPT"
             haveFlag=1
             shift 2;;
 
         --retrieval_method)
-            PROC_OPT="--retrieval_method=$2"
+            RETR_MTHD_OPT="--retrieval_method=$2"
             #echo "Setting RETR_MTHD_OPT"
             haveFlag=1
             shift 2;;
 
-        -p|--processors)
-            PROC_OPT="--processors=$2"
-            #echo "Setting PROC_OPT"
+        --print_retrieval)
+            PRINT_RETRIEVAL_OPT="--print_retrieval"
+            #echo "Setting PRINT_RETRIEVAL_OPT"
             haveFlag=1
-            shift 2;;
+            shift ;;
+
+        --print_l1d_header)
+            PRINT_L1D_OPT="--print_l1d_header"
+            #echo "Setting PRINT_L1D_OPT"
+            haveFlag=1
+            shift ;;
 
         -d|--debug)
             DEBUG_OPT="--debug"
@@ -137,27 +161,35 @@ then
     exit 0
 fi
 
-echo "INPUT_FILES_OPT      = "$INPUT_FILES_OPT
-echo "SAT_OPT              = "$SAT_OPT
-echo "WORK_DIR_OPT         = "$WORK_DIR_OPT
-echo "TOPO_FILE_OPT        = "$TOPO_FILE_OPT
-echo "INSTR_OPT            = "$INSTR_OPT
-echo "RETR_MTHD_OPT        = "$RETR_MTHD_OPT
-echo "PROC_OPT             = "$PROC_OPT
-echo "DEBUG_OPT            = "$DEBUG_OPT
-echo "VERBOSITY_OPT        = "$VERBOSITY_OPT
+#echo "INPUT_FILES_OPT      = "$INPUT_FILES_OPT
+#echo "SAT_OPT              = "$SAT_OPT
+#echo "WORK_DIR_OPT         = "$WORK_DIR_OPT
+#echo "TOPO_FILE_OPT        = "$TOPO_FILE_OPT
+#echo "FORECAST_FILE_OPT    = "$FORECAST_FILE_FILE_OPT
+#echo "RADIOSONDE_FILE_OPT  = "$RADIOSONDE_FILE_OPT
+#echo "SURFACE_OBS_FILE_OPT = "$SURFACE_OBS_FILE_OPT
+#echo "INSTR_OPT            = "$INSTR_OPT
+#echo "RETR_MTHD_OPT        = "$RETR_MTHD_OPT
+#echo "DEBUG_OPT            = "$DEBUG_OPT
+#echo "PRINT_RETRIEVAL_OPT  = "$PRINT_RETRIEVAL_OPT
+#echo "PRINT_L1D_OPT        = "$PRINT_L1D_OPT
+#echo "VERBOSITY_OPT        = "$VERBOSITY_OPT
 
-echo "$PY $CSPP_IAPP_HOME/iapp/iapp_level2.py \
-    $INPUT_FILES_OPT \
-    $SAT_OPT \
-    $WORK_DIR_OPT \
-    $TOPO_FILE_OPT \
-    $INSTR_OPT \
-    $RETR_MTHD_OPT \
-    $PROC_OPT \
-    $DEBUG_OPT \
-    $VERBOSITY_OPT
-"
+#echo "$PY $CSPP_IAPP_HOME/iapp/iapp_level2.py \
+    #$INPUT_FILES_OPT \
+    #$SAT_OPT \
+    #$WORK_DIR_OPT \
+    #$TOPO_FILE_OPT \
+    #$FORECAST_FILE_FILE_OPT \
+    #$RADIOSONDE_FILE_OPT \
+    #$SURFACE_OBS_FILE_OPT \
+    #$INSTR_OPT \
+    #$RETR_MTHD_OPT \
+    #$PRINT_RETRIEVAL_OPT \
+    #$PRINT_L1D_OPT \
+    #$DEBUG_OPT \
+    #$VERBOSITY_OPT
+#"
 
 #exit 1
 
@@ -166,14 +198,12 @@ $PY $CSPP_IAPP_HOME/iapp/iapp_level2.py \
     $SAT_OPT \
     $WORK_DIR_OPT \
     $TOPO_FILE_OPT \
+    $FORECAST_FILE_FILE_OPT \
+    $RADIOSONDE_FILE_OPT \
+    $SURFACE_OBS_FILE_OPT \
     $INSTR_OPT \
     $RETR_MTHD_OPT \
-    $PROC_OPT \
+    $PRINT_RETRIEVAL_OPT \
+    $PRINT_L1D_OPT \
     $DEBUG_OPT \
     $VERBOSITY_OPT -vv
-
-##############################
-#         Packaging          #
-##############################
-
-#bash $CSPP_RT_HOME/../CSPP_RT_repo/trunk/scripts/edr/CSPP_RT_ViirsEdrMasks_Package.sh  $CSPP_RT_HOME/viirs/edr/viirs_edr.sh ../../sample_data/viirs/edr/input/VIIRS_OPS_unpackTest/HDF5/

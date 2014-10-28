@@ -176,7 +176,7 @@ def retrieve_NCEP_grib_files(Level1D_obj):
     ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp')
 
     # Check that we have access to the c-shell...
-    check_exe('csh')
+    _ = check_exe('csh')
 
     LOG.info('Retrieving and granulating ancillary data for {}...'
             .format(Level1D_obj.input_file))
@@ -271,7 +271,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
 
 
     # Check that we have access to the k-shell...
-    check_exe('ksh')
+    _ = check_exe('ksh')
 
     # Check that we have access to the transcoding script...
     scriptNames = [
@@ -401,6 +401,11 @@ def retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH):
 
     for metarFile in metarFiles :
         LOG.info('Retrieved METAR file: {}'.format(metarFiles))
+
+    if metarFiles == []:
+        LOG.error('No METAR surface observation files retrieved for date {}, aborting.'
+                .format(Level1D_obj.pass_mid_str))
+        sys.exit(1)
 
     return metarFiles
 
