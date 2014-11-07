@@ -240,13 +240,17 @@ def __cleanup(work_dir, files_to_remove, dirs_to_remove):
     '''
     Remove runfiles and the executable logfiles.
     '''
-
     # Remove files
     for filename in files_to_remove:
         fullFileName = path.join(work_dir,filename)
-        LOG.debug('Removing {}'.format(fullFileName))
         try :
-            os.unlink(fullFileName)
+            if path.isfile(fullFileName) and not path.islink(fullFileName):
+                LOG.debug('Removing file {}'.format(fullFileName))
+                os.unlink(fullFileName)
+
+            if path.islink(fullFileName):
+                LOG.debug('Removing link {}'.format(fullFileName))
+                os.unlink(fullFileName)
         except Exception, err:
             LOG.warn( "{}".format(str(err)))
 
@@ -468,24 +472,34 @@ def check_exe(exeName):
         sys.exit(1)
 
 
-def link_l1d_file(remote_l1d_file,work_dir):
-    '''Link the AAPP l1d file into the work directory'''
+def link_run_files(files_to_link,work_dir):
+    '''Link various remote files into work_dir'''
 
-    local_l1d_file = path.basename(remote_l1d_file)
+    for file_key in files_to_link.keys():
 
-    LOG.debug("Remote L1D file: {}".format(remote_l1d_file))
-    LOG.debug("Local L1D file: {}".format(local_l1d_file))
+        if files_to_link[file_key] == "":
+
+            files_to_link[file_key] = ""
+
+        else:
+            remote_file = path.abspath(files_to_link[file_key])
+            local_file = path.basename(remote_file)
+
+            LOG.debug("Remote {} file: {}".format(file_key,remote_file))
+            LOG.debug("Local  {} file: {}".format(file_key,local_file))
+
+            if not path.exists(local_file):
+                LOG.debug("Creating the link {} -> {}"
+                        .format(local_file,remote_file))
+                os.symlink(remote_file, local_file)
+            else:
+                LOG.debug('{} already exists; continuing'
+                        .format(local_file))
+
+            files_to_link[file_key] = local_file
 
 
-    if not path.exists(local_l1d_file):
-        LOG.debug("Creating the link {} -> {}"
-                .format(local_l1d_file,remote_l1d_file))
-        os.symlink(remote_l1d_file, local_l1d_file)
-    else:
-        LOG.debug('{} already exists; continuing'
-                .format(local_l1d_file))
-
-    return local_l1d_file
+    return files_to_link
 
 
 def link_iapp_coeffs(work_dir):
@@ -596,7 +610,7 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
         # Call the transcoding script, writing the logging output to a file
         LOG.info('Populating NetCDF template file {} ...'.format(netcdf_template_file))
         cmdStr = '{}'.format(scriptPath)
-        LOG.debug('\t{}'.format(cmdStr))
+        LOG.debug('{}'.format(cmdStr))
         args = shlex.split(cmdStr)
 
         procRetVal = 0
@@ -975,15 +989,23 @@ def main():
     if options.print_l1d_header:
         return 0
 
-    # Retrieve the required GRIB1 GDAS/GFS ancillary data...
-    gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
-    LOG.info('Retrieved GRIB files: {}'.format(gribFiles))
+    # Specify the GRIB1 GDAS/GFS ancillary file
+    if options.forecast_model_file is None:
 
-    # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
-    grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0],work_dir,log_dir)
+        # Retrieve the required GRIB1 GDAS/GFS ancillary data...
+        gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
+        LOG.info('Retrieved GFS files: {}'.format(gribFiles))
+
+        # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
+        grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0],work_dir,log_dir)
+        LOG.info('Transcoded GDAS/GFS NetCDF file: {}'.format(grib_netcdf_file))
+
+    else:
+        grib_netcdf_file = options.forecast_model_file
 
     GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
     LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
+
 
     # Specify the METAR surface observation file
     if options.surface_obsv_file is None:
@@ -995,6 +1017,7 @@ def main():
         # Transcode METAR ancillary data to NetCDF
         metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
         LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+
     else:
         metar_netcdf_file = options.surface_obsv_file
 
@@ -1004,21 +1027,27 @@ def main():
     NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
     LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
 
-    # Create a link to the AAPP L1D file in the work dir
-    local_l1d_file = link_l1d_file(path.abspath(options.inputFiles), work_dir)
+    # Create a list of files to link into the work directory, and link them...
+    files_to_link = {
+            'gdas_gfs_netcdf_file' : grib_netcdf_file, 
+            'metar_file' : metar_netcdf_file,
+            'topography_file' : path.join(NETCDF_FILES_PATH,'topography.nc'),
+            'level1d_file' : options.inputFiles
+            }
+    linked_files = link_run_files(files_to_link, work_dir)
 
     # Create the runfile
     template_dict = {}
-    template_dict['level1d_file'] = local_l1d_file
-    template_dict['topography_file'] = path.join(NETCDF_FILES_PATH,'topography.nc')
-    template_dict['gdas_gfs_netcdf_file'] = grib_netcdf_file
-    template_dict['metar_file'] = metar_netcdf_file
+    template_dict['level1d_file'] = linked_files['level1d_file']
+    template_dict['topography_file'] = linked_files['topography_file']
+    template_dict['gdas_gfs_netcdf_file'] = linked_files['gdas_gfs_netcdf_file']
+    template_dict['metar_file'] = linked_files['metar_file']
     template_dict['radiosonde_file'] = ''
     template_dict['retrieval_method'] = options.retrieval_method
     template_dict['print_option'] = 1 if options.print_retrieval else 0
     template_dict['satellite_name'] = options.satellite
     template_dict['instrument_combo'] = options.instrument_combo
-    template_dict['retrieval_bounds'] = "{:1.0f}. {:1.0f}. {:1.0f}. {:1.0f}.".format(
+    template_dict['retrieval_bounds'] = " {:1.0f}. {:1.0f}. {:1.0f}. {:1.0f}.".format(
             options.lower_latitude,options.upper_latitude,
             options.left_longitude,options.right_longitude)
 
@@ -1041,7 +1070,8 @@ def main():
 
     # General Cleanup...
     if not options.cspp_debug:
-        __cleanup(work_dir,['iapp.filenames',local_l1d_file],[log_dir])
+        files_to_remove = linked_files.values() + ['iapp.filenames']
+        __cleanup(work_dir,files_to_remove,[log_dir])
 
     # TODO: Work out a sensible return code scheme.
 
