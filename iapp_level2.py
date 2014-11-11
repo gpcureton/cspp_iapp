@@ -483,7 +483,7 @@ def link_run_files(files_to_link,work_dir):
 
         else:
             remote_file = path.abspath(files_to_link[file_key])
-            local_file = path.basename(remote_file)
+            local_file = path.join(work_dir,path.basename(remote_file))
 
             LOG.debug("Remote {} file: {}".format(file_key,remote_file))
             LOG.debug("Local  {} file: {}".format(file_key,local_file))
@@ -496,7 +496,7 @@ def link_run_files(files_to_link,work_dir):
                 LOG.debug('{} already exists; continuing'
                         .format(local_file))
 
-            files_to_link[file_key] = local_file
+            files_to_link[file_key] = path.basename(local_file)
 
 
     return files_to_link
@@ -517,6 +517,8 @@ def link_iapp_coeffs(work_dir):
     else:
         LOG.debug('{} already exists; continuing'
                 .format(LOCAL_COEFFS_DIR))
+
+    return LOCAL_COEFFS_DIR
 
 
 def create_retrieval_netcdf_template(work_dir):
@@ -606,12 +608,16 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
 
+    current_dir = os.getcwd()
+
     try :
         # Call the transcoding script, writing the logging output to a file
         LOG.info('Populating NetCDF template file {} ...'.format(netcdf_template_file))
         cmdStr = '{}'.format(scriptPath)
         LOG.debug('{}'.format(cmdStr))
         args = shlex.split(cmdStr)
+
+        os.chdir(work_dir)
 
         procRetVal = 0
         procObj = subprocess.Popen(args,
@@ -624,6 +630,8 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
         procRetVal = procObj.returncode
 
         logfile_obj.close()
+
+        os.chdir(current_dir)
 
         # TODO : On error, jump to a cleanup routine
         if not (procRetVal == 0) :
@@ -663,6 +671,7 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
             endTimeStamp,
             creationTimeStamp)
 
+    iapp_retrieval_netcdf = path.join(work_dir,path.basename(iapp_retrieval_netcdf))
 
     LOG.info('Moving {} to {}...'.format(
         netcdf_template_file,iapp_retrieval_netcdf
@@ -945,8 +954,9 @@ def _argparse():
 
 
     # Set the work directory
-    work_dir = check_and_convert_path("WORK_DIR",args.work_dir)
-    LOG.debug('Setting the work directory to %r' % (work_dir))
+    work_dir = check_and_convert_path("WORK_DIR",
+            path.abspath(args.work_dir))
+    LOG.debug('Setting the work directory to {}'.format(work_dir))
 
     # Set up the logging
     d = datetime.now()
@@ -1057,7 +1067,7 @@ def main():
     create_retrieval_netcdf_template(work_dir)
 
     # Create a link to the IAPP coefficient dir
-    link_iapp_coeffs(work_dir)
+    coeff_dir = link_iapp_coeffs(work_dir)
 
     # Run the IAPP executable
     t1 = time()
@@ -1070,7 +1080,7 @@ def main():
 
     # General Cleanup...
     if not options.cspp_debug:
-        files_to_remove = linked_files.values() + ['iapp.filenames']
+        files_to_remove = linked_files.values() + ['iapp.filenames',coeff_dir]
         __cleanup(work_dir,files_to_remove,[log_dir])
 
     # TODO: Work out a sensible return code scheme.
