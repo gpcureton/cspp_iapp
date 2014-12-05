@@ -292,6 +292,8 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
 
+    current_dir = os.getcwd()
+
     script_args = '{} {}/iapp_ancillary.cdl'.format(
             grib1_file,
             IAPP_FILES_PATH
@@ -304,6 +306,8 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         LOG.debug('\t{}'.format(cmdStr))
         args = shlex.split(cmdStr)
 
+        os.chdir(work_dir)
+
         procRetVal = 0
         procObj = subprocess.Popen(args,
                 env=env(
@@ -315,6 +319,8 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         procRetVal = procObj.returncode
 
         logfile_obj.close()
+
+        os.chdir(current_dir)
 
         # TODO : On error, jump to a cleanup routine
         if not (procRetVal == 0) :
@@ -333,6 +339,8 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
                 break
         logfile_obj.close()
 
+        os.chdir(current_dir)
+
         grib_netcdf_local_file = path.join(work_dir,grib_netcdf_file)
         grib_netcdf_remote_file = path.join(GRIB_FILE_PATH,grib_netcdf_file)
 
@@ -340,6 +348,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
 
         # Move the new NetCDF file to the ancillary cache...
         if not path.exists(grib_netcdf_local_file):
+            LOG.error('New NetCDF file {} does not exist...'.format(grib_netcdf_local_file))
             LOG.error('New NetCDF file creation failed, aborting...')
             sys.exit(1)
         else:
@@ -431,6 +440,9 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
 
+    current_dir = os.getcwd()
+    os.chdir(work_dir)
+
     # Check that we have access to the NetCDF generation exe...
     scriptPath = "{}/ncgen".format(NCGEN_PATH)
     if not path.exists(scriptPath):
@@ -456,6 +468,7 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
         cmdStr = '{} {}'.format(scriptPath,script_args)
         LOG.debug('\t{}'.format(cmdStr))
         args = shlex.split(cmdStr)
+
 
         procRetVal = 0
         procObj = subprocess.Popen(args,
@@ -522,6 +535,8 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
         LOG.debug('\t{}'.format(cmdStr))
         args = shlex.split(cmdStr)
 
+        os.chdir(work_dir)
+
         procRetVal = 0
         procObj = subprocess.Popen(args,
                 env=env(
@@ -545,6 +560,8 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
         LOG.debug(traceback.format_exc())
 
     logfile_obj.close()
+
+    os.chdir(current_dir)
 
     return metar_netcdf_file
 
