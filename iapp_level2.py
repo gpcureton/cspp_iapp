@@ -84,11 +84,10 @@ from tables import exceptions as pyEx
 
 from multiprocessing import Pool, Lock, Value, cpu_count
 
-from adl_common import sh, env 
-from adl_common import check_and_convert_path,check_existing_env_var
-from adl_common import CSPP_RT_HOME, CSPP_RT_ANC_PATH, CSPP_RT_ANC_CACHE_DIR
-
-from adl_common import IAPP_HOME
+from iapp_utils import sh, env 
+from iapp_utils import check_and_convert_path,check_existing_env_var
+from iapp_utils import CSPP_RT_HOME, CSPP_RT_ANC_PATH, CSPP_RT_ANC_CACHE_DIR
+from iapp_utils import IAPP_HOME
 
 from ANC import retrieve_NCEP_grib_files, transcode_NCEP_grib_files
 from ANC import retrieve_METAR_files, transcode_METAR_files
@@ -96,7 +95,7 @@ from ANC import retrieve_METAR_files, transcode_METAR_files
 # every module should have a LOG object
 sourcename= file_Id.split(" ")
 LOG = logging.getLogger(sourcename[1])
-from adl_common import configure_logging
+from iapp_utils import configure_logging
 
 ###################################################
 #                  Global Data                    #
@@ -1020,13 +1019,15 @@ def main():
     # Specify the METAR surface observation file
     if options.surface_obsv_file is None:
 
+        metar_netcdf_file = ""
+
         # Retrieve the METAR Surface Observation ancillary data...
-        metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
-        LOG.info('Retrieved METAR files: {}'.format(metarFiles))
+        #metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
+        #LOG.info('Retrieved METAR files: {}'.format(metarFiles))
 
         # Transcode METAR ancillary data to NetCDF
-        metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
-        LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+        #metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
+        #LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
 
     else:
         metar_netcdf_file = options.surface_obsv_file

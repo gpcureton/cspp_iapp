@@ -35,11 +35,11 @@ from glob import glob
 
 import pygrib
 
-from adl_common import sh, env
-from adl_common import CSPP_RT_HOME, CSPP_RT_ANC_PATH, \
+from iapp_utils import sh, env
+from iapp_utils import CSPP_RT_HOME, CSPP_RT_ANC_PATH, \
     CSPP_RT_ANC_CACHE_DIR, COMMON_LOG_CHECK_TABLE, env, JPSS_REMOTE_ANC_DIR
     
-from adl_common import IAPP_HOME
+from iapp_utils import IAPP_HOME
 
 # Plotting stuff
 import matplotlib
