@@ -168,9 +168,12 @@ def check_and_convert_env_var(varname,check_write=False,default_value=None):
       
 
 def what_package_am_i():
-    path= os.path.dirname(os.path.abspath(sys.argv[0])) 
-    cspp_x = path.split("/iapp")
+    file_path= sys.argv[0]
+    LOG.debug("Script location is {}".format(file_path))
+
+    cspp_x = file_path.split("/iapp/iapp_level2.py")
     cspp_x_home = cspp_x[0]
+    LOG.debug("capp_x_home path is {}".format(cspp_x_home))
 
     return cspp_x_home
   
