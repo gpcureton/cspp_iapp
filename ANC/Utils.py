@@ -163,7 +163,7 @@ def check_exe(exeName):
     ''' Check that a required executable is in the path...'''    
     try:
         retVal = sh(['which',exeName])
-        LOG.info("{} is in the PATH...".format(exeName))
+        LOG.debug("{} is in the PATH...".format(exeName))
     except CalledProcessError:
         LOG.error("Required executable {} is not in the path or is not installed, aborting."
                 .format(exeName))

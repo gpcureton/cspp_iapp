@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 """
-$Id$
+$Id: iapp_utils.py 2348 2015-02-11 17:24:36Z geoffc $
 
 Purpose: Common routines for IAPP Level1/2 handling and ancillary data caching.
 
@@ -255,12 +255,13 @@ logging_configured=False
 def configure_logging(level=logging.WARNING, FILE=None):
     "route logging INFO and DEBUG to stdout instead of stderr, affects entire application"
     global logging_configured
+
     # create a formatter to be used across everything
-    #fm = logging.Formatter('%(levelname)s:%(name)s:%(msg)s') # [%(filename)s:%(lineno)d]')
-    fm = logging.Formatter('(%(levelname)s):%(filename)s:%(funcName)s:%(lineno)d:%(message)s')
-    #fm = logging.Formatter('%(asctime)s (%(levelname)s):%(filename)s:%(funcName)s:%(lineno)d:%(message)s',\
-    #fm = logging.Formatter('%(asctime)s.%(msecs)03d (%(levelname)s):%(filename)s:%(funcName)s:%(lineno)d:%(message)s',\
-            #datefmt='%Y-%m-%d %H:%M:%S')
+    if level == logging.DEBUG :
+        fm = logging.Formatter('%(asctime)s.%(msecs)03d (%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d:%(message)s',\
+                datefmt='%Y-%m-%d %H:%M:%S')
+    else:
+        fm = logging.Formatter('(%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d : %(message)s')
 
     rootLogger = logging.getLogger()
     
@@ -307,7 +308,7 @@ def status_line( status ):
     """
     Make comment standout in log
     """
-    LOG.info("\n                 ( "+status+" )\n")
+    LOG.debug("                 ( "+status+" )")
 
 
 def env(**kv):
