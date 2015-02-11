@@ -51,14 +51,14 @@ Copyright (c) 2014-2014 University of Wisconsin Regents. All rights reserved.
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-file_Date = '$Date: 2015-02-11 09:26:07 -0800 (Wed, 11 Feb 2015) $'
-file_Revision = '$Revision: 2349 $'
+file_Date = '$Date: 2015-02-11 10:49:15 -0800 (Wed, 11 Feb 2015) $'
+file_Revision = '$Revision: 2352 $'
 file_Author = '$Author: geoffc $'
 file_HeadURL = '$HeadURL: https://svn.ssec.wisc.edu/repos/jpss_adl/trunk/scripts/iapp/iapp_level2.py $'
-file_Id = '$Id: iapp_level2.py 2349 2015-02-11 17:26:07Z geoffc $'
+file_Id = '$Id: iapp_level2.py 2352 2015-02-11 18:49:15Z geoffc $'
 
 __author__ = 'Geoff Cureton <geoff.cureton@ssec.wisc.edu>'
-__version__ = '$Id: iapp_level2.py 2349 2015-02-11 17:26:07Z geoffc $'
+__version__ = '$Id: iapp_level2.py 2352 2015-02-11 18:49:15Z geoffc $'
 __docformat__ = 'Epytext'
 
 
@@ -588,7 +588,6 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
 
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
 
-
     # Check that we have access to the IAPP main exe...
     scriptPath = "{}/iapp_main".format(IAPP_EXE_PATH)
     if not path.exists(scriptPath):
@@ -600,6 +599,10 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
         LOG.error('{} can not be found, aborting.'.format(netcdf_template_file))
         sys.exit(1)
 
+    # Get the size of the template file
+    template_size = os.stat(netcdf_template_file).st_size
+    LOG.debug("Size of uwretrievals.nc is {}".format(template_size))
+
     # Set up the logging
     d = datetime.now()
     timestamp = d.isoformat()
@@ -608,6 +611,8 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
     logfile_obj = open(logpath,'w')
 
     current_dir = os.getcwd()
+
+    t1 = time()
 
     try :
         # Call the transcoding script, writing the logging output to a file
@@ -642,6 +647,8 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
         LOG.warn( "{}".format(str(err)))
         LOG.debug(traceback.format_exc())
 
+    t2 = time()
+    LOG.info("iapp_main ran in {} seconds.".format(t2-t1))
 
     LOG.info('IAPP completed successfully created: {}'
             .format(netcdf_template_file))
@@ -677,11 +684,20 @@ def run_iapp_exe(options,Level1D_obj,work_dir,log_dir):
         ))
     move(netcdf_template_file,iapp_retrieval_netcdf)
 
+    # Get the size of the retrieval file
+    retrieval_size = os.stat(iapp_retrieval_netcdf).st_size
+    LOG.debug("Size of {} is {}".format(iapp_retrieval_netcdf,retrieval_size))
+
+    if retrieval_size == template_size :
+        LOG.warning("{} has same size ({} bytes) as {}, possible IAPP failure.".format(
+            iapp_retrieval_netcdf,retrieval_size,
+            path.basename(netcdf_template_file)))
+
     return iapp_retrieval_netcdf
 
 
 def run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir):
-    '''Run the IAPP executable'''
+    '''Pretend to run the IAPP executable'''
 
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
 
@@ -690,12 +706,18 @@ def run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir):
         LOG.error('{} can not be found, aborting.'.format(netcdf_template_file))
         sys.exit(1)
 
+    # Get the size of the template file
+    template_size = os.stat(netcdf_template_file).st_size
+    LOG.debug("Size of uwretrievals.nc is {}".format(template_size))
+
     # Set up the logging
     d = datetime.now()
     timestamp = d.isoformat()
     logname= "iapp_main."+timestamp+".log"
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
+
+    t1 = time()
 
     try :
         # Call the transcoding script, writing the logging output to a file
@@ -708,9 +730,12 @@ def run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir):
         LOG.warn( "{}".format(str(err)))
         LOG.debug(traceback.format_exc())
 
+    t2 = time()
+    LOG.info("iapp_main ran in {} seconds.".format(t2-t1))
 
     LOG.info('IAPP completed successfully created: {}'
             .format(netcdf_template_file))
+
 
     # Rename the output NetCDF file
     timeObj = Level1D_obj.timeObj_start
@@ -736,13 +761,24 @@ def run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir):
             endTimeStamp,
             creationTimeStamp)
 
+    iapp_retrieval_netcdf = path.join(work_dir,path.basename(iapp_retrieval_netcdf))
 
     LOG.debug('Moving {} to {}...'.format(
         netcdf_template_file,iapp_retrieval_netcdf
         ))
     move(netcdf_template_file,iapp_retrieval_netcdf)
 
+    # Get the size of the retrieval file
+    retrieval_size = os.stat(iapp_retrieval_netcdf).st_size
+    LOG.debug("Size of {} is {}".format(iapp_retrieval_netcdf,retrieval_size))
+
+    if retrieval_size == template_size :
+        LOG.warning("{} has same size ({} bytes) as {}, possible IAPP failure.".format(
+            iapp_retrieval_netcdf,retrieval_size,
+            path.basename(netcdf_template_file)))
+
     return iapp_retrieval_netcdf
+
 
 def _argparse():
     '''
@@ -1053,7 +1089,7 @@ def main():
 
 
     # Set up some path variables
-    LOG.info('VENDOR Location: {}'.format(IAPP_HOME))
+    LOG.debug('VENDOR Location: {}'.format(IAPP_HOME))
     NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
     LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
 
@@ -1090,13 +1126,8 @@ def main():
     coeff_dir = link_iapp_coeffs(work_dir)
 
     # Run the IAPP executable
-    t1 = time()
-
     #iapp_retrieval_netcdf = run_iapp_exe_dummy(options,Level1D_obj,work_dir,log_dir)
     iapp_retrieval_netcdf = run_iapp_exe(options,Level1D_obj,work_dir,log_dir)
-    
-    t2 = time()
-    LOG.info("iapp_main ran in {} seconds.".format(t2-t1))
 
     # General Cleanup...
     if not options.cspp_debug:
@@ -1112,6 +1143,7 @@ def main():
         #return 0
 
     return 0
+
 
 if __name__=='__main__':
     sys.exit(main())  
