@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # encoding: utf-8
 """
-$Id: iapp_utils.py 2348 2015-02-11 17:24:36Z geoffc $
+$Id: iapp_utils.py 2351 2015-02-11 18:47:51Z geoffc $
 
 Purpose: Common routines for IAPP Level1/2 handling and ancillary data caching.
 
@@ -250,18 +250,24 @@ def check_env(  work_dir ):
             LOG.warning("%r executable is unlikely to run, is LD_LIBRARY_PATH set?" % EXTERNAL_BINARY[key])
 
 logging_configured=False
- 
+
 
 def configure_logging(level=logging.WARNING, FILE=None):
     "route logging INFO and DEBUG to stdout instead of stderr, affects entire application"
     global logging_configured
 
     # create a formatter to be used across everything
+    #if level == logging.ERROR : print "logging is ERROR"
+    #if level == logging.WARN : print "logging is WARN"
+    #if level == logging.INFO : print "logging is INFO"
+    #if level == logging.DEBUG : print "logging is DEBUG"
+
     if level == logging.DEBUG :
         fm = logging.Formatter('%(asctime)s.%(msecs)03d (%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d:%(message)s',\
                 datefmt='%Y-%m-%d %H:%M:%S')
     else:
-        fm = logging.Formatter('(%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d : %(message)s')
+        #fm = logging.Formatter('(%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d : %(message)s')
+        fm = logging.Formatter('(%(levelname)s) : %(message)s')
 
     rootLogger = logging.getLogger()
     
@@ -464,8 +470,7 @@ def get_return_code(num_unpacking_problems, num_xml_files_to_process,
     return rc
 
 
-configure_logging()
-# paths for ADL and ancillary are set to default values based on relative location to this module.
+# paths for IAPP and ancillary are set to default values based on relative location to this module.
 
 cspp_x_home=what_package_am_i()
 
