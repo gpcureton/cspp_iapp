@@ -51,14 +51,14 @@ Copyright (c) 2014-2014 University of Wisconsin Regents. All rights reserved.
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-file_Date = '$Date: 2015-02-11 10:49:15 -0800 (Wed, 11 Feb 2015) $'
-file_Revision = '$Revision: 2352 $'
+file_Date = '$Date: 2015-02-11 13:29:02 -0800 (Wed, 11 Feb 2015) $'
+file_Revision = '$Revision: 2353 $'
 file_Author = '$Author: geoffc $'
 file_HeadURL = '$HeadURL: https://svn.ssec.wisc.edu/repos/jpss_adl/trunk/scripts/iapp/iapp_level2.py $'
-file_Id = '$Id: iapp_level2.py 2352 2015-02-11 18:49:15Z geoffc $'
+file_Id = '$Id: iapp_level2.py 2353 2015-02-11 21:29:02Z geoffc $'
 
 __author__ = 'Geoff Cureton <geoff.cureton@ssec.wisc.edu>'
-__version__ = '$Id: iapp_level2.py 2352 2015-02-11 18:49:15Z geoffc $'
+__version__ = '$Id: iapp_level2.py 2353 2015-02-11 21:29:02Z geoffc $'
 __docformat__ = 'Epytext'
 
 
@@ -808,7 +808,7 @@ def _argparse():
                 'cspp_debug':False
                 }
 
-    description = '''Run the IAPP package on level-1D files to generate level-2 files.'''
+    description = '''Run the IAPP package on level-1d files to generate level-2 files.'''
     usage = "usage: %prog [mandatory args] [options]"
     version = __version__
 
@@ -818,35 +818,13 @@ def _argparse():
                                      description=description
                                      )
 
-    # Mandatory arguments
-
-    #parser.add_argument('-i','--input_files',
-                      #action="store",
-                      #dest="inputFiles",
-                      #type=str,
-                      #required=True,
-                      #help='''The fully qualified path to the input files. May be
-                            #a directory or a file glob.'''
-                      #)
-
-    #parser.add_argument('--satellite',
-                      #action="store",
-                      #dest="satellite",
-                      #type=str,
-                      #required=True,
-                      #choices=satelliteChoices,
-                      #help='''The satellite name.\n\n
-                              #Possible values are...
-                              #{}.
-                           #'''.format(satelliteChoices.__str__()[1:-1])
-                      #)
+    # Mandatory/positional arguments
 
     parser.add_argument(
                       action="store",
-                      dest="inputFiles",
+                      dest="input_file",
                       type=str,
-                      help='''The fully qualified path to the input files. May be
-                            a directory or a file glob.'''
+                      help='''The fully qualified path to a single level-1d input file.'''
                       )
 
     parser.add_argument(
@@ -854,8 +832,8 @@ def _argparse():
                       dest="satellite",
                       type=str,
                       choices=satelliteChoices,
-                      help='''The satellite name.\n\n
-                              Possible values are...
+                      help='''Satellite name.
+                              Possible values are...\n
                               {}.
                            '''.format(satelliteChoices.__str__()[1:-1])
                       )
@@ -914,8 +892,12 @@ def _argparse():
                       default=defaults['instrument_combo'],
                       type=int,
                       choices=instrumentChoices.keys(),
-                      help='''Instrument combination. 
-                      [default: {}]'''.format(defaults['instrument_combo'])
+                      help='''Instrument combination.
+                              Possible values are...\n
+                              {}.
+                              [default: {}]
+                           '''.format(instrumentChoices.__str__()[1:-1],
+                               defaults['instrument_combo'])
                       )
 
     parser.add_argument('--retrieval_method',
@@ -924,8 +906,12 @@ def _argparse():
                       default=defaults['retrieval_method'],
                       type=int,
                       choices=retrievalMethodChoices.keys(),
-                      help='''Retrieval method. 
-                      [default: {}]'''.format(defaults['retrieval_method'])
+                      help='''Retrieval method.
+                              Possible values are...\n
+                              {}.
+                              [default: {}]
+                           '''.format(retrievalMethodChoices.__str__()[1:-1],
+                               defaults['retrieval_method'])
                       )
 
     parser.add_argument('--lower_lat',
@@ -1048,7 +1034,7 @@ def main():
     LOG.debug("CSPP_RT_ANC_CACHE_DIR: {}".format(CSPP_RT_ANC_CACHE_DIR))
 
     # Parse the level 1D file header
-    Level1D_obj = Level1D(options.inputFiles)
+    Level1D_obj = Level1D(options.input_file)
 
     if options.print_l1d_header:
         return 0
@@ -1098,7 +1084,7 @@ def main():
             'gdas_gfs_netcdf_file' : grib_netcdf_file, 
             'metar_file' : metar_netcdf_file,
             'topography_file' : path.join(NETCDF_FILES_PATH,'topography.nc'),
-            'level1d_file' : options.inputFiles
+            'level1d_file' : options.input_file
             }
     linked_files = link_run_files(files_to_link, work_dir)
 
