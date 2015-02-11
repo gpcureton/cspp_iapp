@@ -51,14 +51,14 @@ Copyright (c) 2014-2014 University of Wisconsin Regents. All rights reserved.
     along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-file_Date = '$Date$'
-file_Revision = '$Revision$'
-file_Author = '$Author$'
-file_HeadURL = '$HeadURL$'
-file_Id = '$Id$'
+file_Date = '$Date: 2015-02-11 09:26:07 -0800 (Wed, 11 Feb 2015) $'
+file_Revision = '$Revision: 2349 $'
+file_Author = '$Author: geoffc $'
+file_HeadURL = '$HeadURL: https://svn.ssec.wisc.edu/repos/jpss_adl/trunk/scripts/iapp/iapp_level2.py $'
+file_Id = '$Id: iapp_level2.py 2349 2015-02-11 17:26:07Z geoffc $'
 
 __author__ = 'Geoff Cureton <geoff.cureton@ssec.wisc.edu>'
-__version__ = '$Id$'
+__version__ = '$Id: iapp_level2.py 2349 2015-02-11 17:26:07Z geoffc $'
 __docformat__ = 'Epytext'
 
 
@@ -464,7 +464,7 @@ def check_exe(exeName):
     ''' Check that a required executable is in the path...'''    
     try:
         retVal = sh(['which',exeName])
-        LOG.info("{} is in the PATH...".format(exeName))
+        LOG.debug("{} is in the PATH...".format(exeName))
     except CalledProcessError:
         LOG.error("Required executable {} is not in the path or is not installed, aborting."
                 .format(exeName))
@@ -784,20 +784,39 @@ def _argparse():
 
     # Mandatory arguments
 
-    parser.add_argument('-i','--input_files',
+    #parser.add_argument('-i','--input_files',
+                      #action="store",
+                      #dest="inputFiles",
+                      #type=str,
+                      #required=True,
+                      #help='''The fully qualified path to the input files. May be
+                            #a directory or a file glob.'''
+                      #)
+
+    #parser.add_argument('--satellite',
+                      #action="store",
+                      #dest="satellite",
+                      #type=str,
+                      #required=True,
+                      #choices=satelliteChoices,
+                      #help='''The satellite name.\n\n
+                              #Possible values are...
+                              #{}.
+                           #'''.format(satelliteChoices.__str__()[1:-1])
+                      #)
+
+    parser.add_argument(
                       action="store",
                       dest="inputFiles",
                       type=str,
-                      required=True,
                       help='''The fully qualified path to the input files. May be
                             a directory or a file glob.'''
                       )
 
-    parser.add_argument('--satellite',
+    parser.add_argument(
                       action="store",
                       dest="satellite",
                       type=str,
-                      required=True,
                       choices=satelliteChoices,
                       help='''The satellite name.\n\n
                               Possible values are...
