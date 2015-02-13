@@ -173,7 +173,7 @@ def check_exe(exeName):
 def retrieve_NCEP_grib_files(Level1D_obj):
     ''' Download the GRIB files which cover the dates of the geolocation files.'''
 
-    ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp')
+    ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp','ANC')
 
     # Check that we have access to the c-shell...
     _ = check_exe('csh')
@@ -257,7 +257,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
     IAPP_DECODERS_PATH=path.abspath(path.join(IAPP_HOME,'decoders'))
     LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
 
-    IAPP_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp')
+    IAPP_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'iapp','ANC')
     LOG.debug('IAPP_SCRIPTS_PATH : {}'.format(IAPP_SCRIPTS_PATH))
 
     IAPP_FILES_PATH=path.abspath(path.join(IAPP_HOME,'decoders','files'))
