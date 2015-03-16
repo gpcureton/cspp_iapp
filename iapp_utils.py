@@ -27,7 +27,7 @@ import __main__
 #import npp_orb_num
 
 
-LOG = logging.getLogger('adl_common')
+LOG = logging.getLogger('iapp_utils')
 
 # Table of common ADL SDR log error messages and the associated hint to correcting the problem.
 # Algorithm-specific error messages should not go here.
@@ -171,7 +171,7 @@ def what_package_am_i():
     file_path= sys.argv[0]
     LOG.debug("Script location is {}".format(file_path))
 
-    cspp_x = file_path.split("/iapp/iapp_level2.py")
+    cspp_x = file_path.split("/scripts/iapp_level2.py")
     cspp_x_home = cspp_x[0]
     LOG.debug("capp_x_home path is {}".format(cspp_x_home))
 
@@ -238,7 +238,8 @@ def initialize_cspp_variables(cspp_home) :
     default=os.path.join(cspp_home,"anc","static")
     CSPP_RT_ANC_TILE_PATH  = check_and_convert_env_var('CSPP_RT_ANC_TILE_PATH',check_write=False,default_value=default)
 
-    default="http://jpssdb.ssec.wisc.edu/cspp_v_2_0/ancillary"
+    #default="http://jpssdb.ssec.wisc.edu/cspp_v_2_0/ancillary"
+    default="ftp://ftp.ssec.wisc.edu/pub/eosdb/ancillary"
     JPSS_REMOTE_ANC_DIR    = check_existing_env_var( "JPSS_REMOTE_ANC_DIR",default_value=default )
 
 

@@ -18,6 +18,6 @@ test -d "$CSPP_IAPP_HOME/common/IAPP_VENDOR" && export CSPP_REV="20120215"
 
 export PATH=${CSPP_IAPP_HOME}/common:$PATH
 export PATH=${CSPP_IAPP_HOME}/common/ShellB3/bin:$PATH
-export PATH=${CSPP_IAPP_HOME}/iapp:$PATH
+export PATH=${CSPP_IAPP_HOME}/scripts:$PATH
 
 

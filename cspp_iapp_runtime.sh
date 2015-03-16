@@ -45,7 +45,7 @@ then
 
 fi
 
-export DCONFIG=${CSPP_IAPP_HOME}/common/cspp_cfg/cfg
+#export DCONFIG=${CSPP_IAPP_HOME}/common/cspp_cfg/cfg
 
 
 if [ ! -z "${DCONFIG}" ];
@@ -54,7 +54,7 @@ then
 
 fi
 
-export JPSS_REMOTE_ANC_DIR='ftp://ftp.ssec.wisc.edu/pub/eosdb/ancillary'
+#export JPSS_REMOTE_ANC_DIR='ftp://ftp.ssec.wisc.edu/pub/eosdb/ancillary'
 
 if [ ! -z "${JPSS_REMOTE_ANC_DIR}" ];
 then
@@ -77,7 +77,7 @@ export DPE_VER=CSPP_IAPP_1_0
 export PY=${CSPP_IAPP_HOME}/common/ShellB3/bin/python
 
 # common modules location used by CSPP scripts
-export PYTHONPATH=$CSPP_IAPP_HOME/common:${CSPP_IAPP_HOME}/iapp
+export PYTHONPATH=$CSPP_IAPP_HOME/common:${CSPP_IAPP_HOME}/scripts
 
 #environment cleanups
 unset LD_PRELOAD

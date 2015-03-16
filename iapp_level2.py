@@ -7,10 +7,8 @@ Purpose: Run the IAPP package on level-1D files to generate level-2 files.
 
 Input:
     * HIRS AAPP Level-1D file.
-    * Static IGBP,LWM,NDVI files.
-    * A work directory, typically, empty, in which to unpack the granules and 
-      generate the output. If the work directory specified does not exist, it 
-      will be created.
+    * Dynamic ancillary GRIB1 files.
+    * A work directory, typically, empty, in which to link in the input files.
 
 Output:
     * NetCDF file output from IAPP
@@ -26,12 +24,11 @@ Optional:
 
 Minimum commandline:
 
-    python iapp_level2.py  --input_files=INPUTFILES --satellite=SATELLITE
+    python iapp_level2.py  INPUTFILES SATELLITE
 
 where...
 
-    INPUTFILES: The fully qualified path to the input files. May be a directory 
-    or a file glob.
+    INPUTFILES: The fully qualified path to the input AAPP l1d file.
 
 
 Created by Geoff Cureton <geoff.cureton@ssec.wisc.edu> on 2014-09-24.
@@ -975,12 +972,19 @@ def _argparse():
                       [default: {}]'''.format(defaults['cspp_debug'])
                       )
 
-    parser.add_argument('-v', '--verbose',
+    parser.add_argument("-v", "--verbose",
                       dest='verbosity',
-                      action="count",
-                      default=0,
-                      help='''Each occurrence increases 
-                      verbosity 1 level from INFO: -v=DEBUG'''
+                      action="count", 
+                      default=2,
+                      help='''each occurrence increases verbosity 1 level from 
+                      INFO. -v=DEBUG'''
+                      )
+
+    parser.add_argument("-q", "--quiet",
+                      action="store_true",
+                      dest='quiet',
+                      default=False,
+                      help='''Silence all output'''
                       )
 
     #parser.add_argument('-V','--version',
@@ -1004,8 +1008,9 @@ def _argparse():
     logname= "iapp_level2."+timestamp+".log"
     logfile= path.join(work_dir, logname )
 
+    verbosity = 0 if args.quiet else args.verbosity
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
-    level = levels[min(args.verbosity,3)]
+    level = levels[min(verbosity,3)]
     configure_logging(level,FILE=logfile)
     
     # create work directory

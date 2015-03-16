@@ -18,7 +18,7 @@ fi
 . ${CSPP_IAPP_HOME}/cspp_iapp_runtime.sh
 
 usage() {
-    $PY $CSPP_IAPP_HOME/iapp/iapp_level2.py --help
+    $PY $CSPP_IAPP_HOME/scripts/iapp_level2.py --help
 }
 
 if [ -z "$1" ]; then
@@ -26,5 +26,5 @@ if [ -z "$1" ]; then
     exit 3
 fi
 
-$PY $CSPP_IAPP_HOME/iapp/iapp_level2.py  -vv "$@"
+$PY $CSPP_IAPP_HOME/scripts/iapp_level2.py "$@"
 
