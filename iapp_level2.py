@@ -129,6 +129,43 @@ def __crash_cleanup(l1d_file, work_dir, files_to_move, dirs_to_move):
             LOG.warn( "{}".format(str(err)))
 
     # Move log directory
+    LOG.debug("Moving other directories ...")
+    for dirname in dirs_to_move:
+        fullDirName = path.join(work_dir,dirname)
+        LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
+        try :
+            move(fullDirName,wreckage_dir)
+        except Exception, err:
+            LOG.warn( "{}".format(str(err)))
+
+
+def __debug_cleanup(l1d_file, work_dir, files_to_move, dirs_to_move):
+    '''
+    In debug mode, move the runfiles log directory.
+    '''
+
+    # Create a log directory to contain the wreckage...
+    wreckage_dir = "{}_debug".format(path.join(work_dir,path.basename(l1d_file)))
+
+    LOG.info('Debugging mode, moving run files to {}'.format(wreckage_dir))
+    if not path.isdir(wreckage_dir):
+        LOG.debug('Creating directory {}'.format(wreckage_dir))
+        os.makedirs(wreckage_dir)
+
+    # Move files
+    for filename in files_to_move:
+        fullFileName = path.join(work_dir,filename)
+        try :
+            if path.isfile(fullFileName) and not path.islink(fullFileName):
+                LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
+                move(fullFileName,wreckage_dir)
+            if path.islink(fullFileName):
+                LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
+                move(fullFileName,wreckage_dir)
+        except Exception, err:
+            LOG.warn( "{}".format(str(err)))
+
+    # Move log directory
     LOG.debug("Removing other directories ...")
     for dirname in dirs_to_move:
         fullDirName = path.join(work_dir,dirname)
@@ -956,6 +993,7 @@ def main():
     LOG.debug("CSPP_RT_ANC_CACHE_DIR: {}".format(CSPP_RT_ANC_CACHE_DIR))
 
     linked_files = {}
+    cleanup_required = True
 
     try:
 
@@ -1062,13 +1100,20 @@ def main():
         __crash_cleanup(options.input_file, work_dir, files_to_move ,[log_dir])
         files_to_remove = [coeff_dir]
         __cleanup(work_dir,files_to_remove,[])
-        options.cspp_debug = True
+        cleanup_required = False
 
     # General Cleanup...
-    if not options.cspp_debug:
-        LOG.info('Performing routine cleanup of working directory...')
-        files_to_remove = linked_files.values() + ['iapp.filenames',coeff_dir]
-        __cleanup(work_dir,files_to_remove,[log_dir])
+    if cleanup_required:
+        if options.cspp_debug:
+            LOG.info('Performing debugging cleanup of working directory...')
+            files_to_move = linked_files.values() + ['iapp.filenames','uwretrievals.nc']
+            __debug_cleanup(options.input_file, work_dir, files_to_move ,[log_dir])
+            files_to_remove = [coeff_dir]
+            __cleanup(work_dir,files_to_remove,[])
+        else:
+            LOG.info('Performing routine cleanup of working directory...')
+            files_to_remove = linked_files.values() + ['iapp.filenames',coeff_dir]
+            __cleanup(work_dir,files_to_remove,[log_dir])
 
 
     LOG.info("Exiting CSPP IAPP ...\n")
