@@ -170,13 +170,37 @@ def check_exe(exeName):
         sys.exit(1)
 
 
+def check_exe2(program):
+    ''' Check that a required executable is in the path...'''    
+    def is_exe(fpath):
+        return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
+
+    fpath, fname = os.path.split(program)
+    if fpath:
+        if is_exe(program):
+            return program
+    else:
+        for path in os.environ["PATH"].split(os.pathsep):
+            path = path.strip('"')
+            exe_file = os.path.join(path, program)
+            if is_exe(exe_file):
+                return exe_file
+
+    return None
+
+
 def retrieve_NCEP_grib_files(Level1D_obj):
     ''' Download the GRIB files which cover the dates of the geolocation files.'''
 
     ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME,'scripts','ANC')
 
     # Check that we have access to the c-shell...
-    _ = check_exe('csh')
+    csh_exe = 'csh'
+    #_ = check_exe(csh_exe)
+    if check_exe2(csh_exe) is None:
+        LOG.error("Required executable '{}' is not in the path or is not installed..."
+            .format(csh_exe))
+        return -1
 
     LOG.info('Retrieving and granulating ancillary data for {}...'
             .format(Level1D_obj.input_file))
@@ -269,9 +293,13 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
     GRIB_FILE_PATH=path.abspath(path.dirname(grib1_file))
     LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
 
-
     # Check that we have access to the k-shell...
-    _ = check_exe('ksh')
+    ksh_exe = 'ksh'
+    #_ = check_exe(ksh_exe)
+    if check_exe2(ksh_exe) is None:
+        LOG.error("Required executable '{}' is not in the path or is not installed..."
+            .format(ksh_exe))
+        return -1
 
     # Check that we have access to the transcoding script...
     scriptNames = [
@@ -283,11 +311,12 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         if not path.exists(scriptPath):
             LOG.error('GRIB transcoding script {} can not be found, aborting.'
                     .format(scriptPath))
-            sys.exit(1)
+            return -1
 
     # Set up the logging
     d = datetime.now()
     timestamp = d.isoformat()
+    timestamp = timestamp.replace(":","")
     logname= "iapp_grib2nc."+timestamp+".log"
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
@@ -326,7 +355,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         if not (procRetVal == 0) :
             LOG.error('Transcoding NCEP file {} to NetCDF failed, aborting...'
                     .format(grib1_file))
-            sys.exit(procRetVal)
+            return -1
 
         # Parse the logfile to determine the new NetCDF filename    
         logfile_obj = open(logpath,'r')
@@ -350,7 +379,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
         if not path.exists(grib_netcdf_local_file):
             LOG.error('New NetCDF file {} does not exist...'.format(grib_netcdf_local_file))
             LOG.error('New NetCDF file creation failed, aborting...')
-            sys.exit(1)
+            return -1
         else:
             LOG.debug('New local NetCDF file {} exists'.format(grib_netcdf_local_file))
 
@@ -436,6 +465,7 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
     # Set up the logging
     d = datetime.now()
     timestamp = d.isoformat()
+    timestamp = timestamp.replace(":","")
     logname= "iapp_metar_to_nc."+timestamp+".log"
     logpath= path.join(log_dir, logname )
     logfile_obj = open(logpath,'w')
