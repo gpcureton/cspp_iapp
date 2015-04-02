@@ -86,11 +86,11 @@ package for direct broadcast users.
 
 ### Installation of CSPP-IAPP Software
 
-Create the installation and working directories, and change into the tarball directory...
+Create the working and tarball directories, and change into the tarball directory...
 
 ```[bash]
-mkdir -p CSPP_IAPP_v1.0/tarballs CSPP_IAPP_v1.0/Work
-cd CSPP_IAPP_v1.0/tarballs
+mkdir tarballs
+cd tarballs
 ```
 
 Download the CSPP-IAPP software and test data tarballs (and associated sha1 checksum files)
@@ -99,39 +99,38 @@ from http://cimss.ssec.wisc.edu/cspp/...
 ```[bash]
 wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0.tar.gz
 wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0.tar.gz.sha1
-wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0_SAMPLE_DATA.tar.gz
-wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0_SAMPLE_DATA.tar.gz.sha1
+wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0_TEST_DATA.tar.gz
+wget -c http://www.ssec.wisc.edu/~geoffc/CSPP_IAPP/downloads/CSPP_IAPP_v1.0_TEST_DATA.tar.gz.sha1
 ```
 
-Using the sha1 files, confirm the integrity of the downloaded tarballs...
+Using the sha1 files, confirm the integrity of the downloaded tarballs, and change back to the top-level directory...
 
 ```[bash]
 sha1sum -c CSPP_IAPP_v1.0.tar.gz.sha1
-sha1sum -c CSPP_IAPP_v1.0_SAMPLE_DATA.tar.gz.sha1
+sha1sum -c CSPP_IAPP_v1.0_TEST_DATA.tar.gz.sha1
+cd ..
 ```
 
-Install the tarballs, and change back to the top-level directory CSPP_IAPP_v1.0
+Install the package tarball
 
 ```[bash]
-tar xzvf CSPP_IAPP_v1.0.tar.gz -C ../
-tar xzvf CSPP_IAPP_v1.0_SAMPLE_DATA.tar.gz -C ../Work
-cd ..
+tar xzvf tarballs/CSPP_IAPP_v1.0.tar.gz
 ```
 
 Set up the run environment...
 
 ```[bash]
-export CSPP_IAPP_HOME=$(readlink -f ./CSPP/IAPP)
+export CSPP_IAPP_HOME=CSPP_IAPP_1_0
 . $CSPP_IAPP_HOME/cspp_iapp_env.sh
 ```
 
 CSPP-IAPP is now ready to use, and test data files are included in the
-`CSPP_IAPP_v1.0/Work/sample_data` directory.
+`Work/sample_data` directory.
 
 In order to test the installation, execute the main driver script now with no arguments
 
 ```[bash]
-bash $CSPP_IAPP_HOME/iapp/iapp_level2.sh
+bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh
 ```
 
 If the installation has been successful to this point, you will be presented with CSPP-IAPP
@@ -146,39 +145,38 @@ When installed as shown in section 2.2, the directory/file structure of CSPP-IAP
 the purposes of this document) is
 
 ```
-CSPP_IAPP_v1.0/CSPP/IAPP
-                    ├── anc
-                    │   ├── cache
-                    │   │   └── luts
-                    │   └── static
-                    │
-                    ├── common
-                    │   ├── cspp_cfg
-                    │   ├── IAPP_VENDOR
-                    │   └── ShellB3
-                    │
-                    ├── iapp
-                    │   ├── ANC
-                    │   │     ├── get_anc_iapp_gdas_gfs.csh
-                    │   │     ├── get_anc_iapp_grib1_gdas_gfs.csh
-                    │   │     ├── iapp_before_and_after_time.csh
-                    │   │     ├── iapp_grib1_to_netcdf.ksh
-                    │   │     ├── iapp_grib2_to_netcdf.ksh
-                    │   │     ├── iapp_retrieve_gdas_gfs.csh
-                    │   │     ├── __init__.py
-                    │   │     ├── jpss_before_and_after_time.csh
-                    │   │     ├── Utils.py
-                    │   │     └── Utils.pyc
-                    │   │
-                    │   ├── iapp_level2.py
-                    │   ├── iapp_level2.sh
-                    │   └── iapp_utils.py
-                    │
-                    ├── cspp_iapp_env.sh
-                    ├── cspp_iapp_runtime.sh
-                    └── cspp_iapp_unset.sh
+CSPP_IAPP_1_0
+        ├── anc
+        │   ├── cache
+        │   │   └── luts
+        │   └── static
+        │
+        ├── common
+        │   ├── cspp_cfg
+        │   ├── IAPP_VENDOR
+        │   └── ShellB3
+        │
+        ├── scripts
+        │   ├── ANC
+        |   |   ├── get_anc_iapp_gdas_gfs.csh
+        |   |   ├── get_anc_iapp_grib1_gdas_gfs.csh
+        |   |   ├── iapp_before_and_after_time.csh
+        |   |   ├── iapp_grib1_to_netcdf.ksh
+        |   |   ├── iapp_grib2_to_netcdf.ksh
+        |   |   ├── iapp_retrieve_gdas_gfs.csh
+        |   |   ├── __init__.py
+        |   |   ├── jpss_before_and_after_time.csh
+        |   |   └── Utils.py
+        |   |
+        │   ├── iapp_compare_netcdf.sh
+        │   ├── iapp_level2.py
+        │   ├── iapp_level2.sh
+        │   └── iapp_utils.py
+        │
+        ├── cspp_iapp_env.sh
+        ├── cspp_iapp_runtime.sh
+        └── cspp_iapp_unset.sh
 ```
-
 
 
 Everything beneath `IAPP_VENDOR/` comprises the package IAPP v4.0. Documentation files
@@ -201,45 +199,71 @@ location with greater storage capacity.
 
 ### Input Data Requirements
 
-CSPP-IAPP produces single Field-of-Regard (FOR) retrievals from level-1d
-calibrated/geolocated data. The level-1d files must contain radiances/brightness temperatures
+CSPP-IAPP produces single Field-of-Regard (FOR) retrievals from input level 1d
+calibrated/geolocated data. The level 1d files must contain radiances/brightness temperatures
 from the High Resolution Infrared Radiation Sounder (HIRS), the Advanced Microwave
-Sounding Unit-A (AMSU-A), and the Microwave Humidity Sounder (MHS). Supported satellites
-are NOAA-18, NOAA-19, Metop-A and Metop-B. Level-1d files can be generated using the
-ATOVS and AVHRR Pre-processing Package (AAPP), available from
+Sounding Unit-A (AMSU-A), and the Microwave Humidity Sounder (MHS). All three
+instruments must be included as part of the level-1d file in order for CSPP-IAPP to
+execute correctly.
+
+Supported satellites are:
+
+* NOAA-18,
+* NOAA-19,
+* Metop-A, and
+* Metop-B.
+
+Level 1d files can be generated using the ATOVS and AVHRR Pre-processing Package
+(AAPP), available from
 
 http://nwpsaf.eu/deliverables/aapp/
 
 
+
+#### Generation of level-1d files using AAPP
+
+The following run commands were used with AAPP v7.8 to create Level 1D files compatible with
+this release of IAPP:
+
+* To create HIRS/AMSU/MHS Level 1D files for NOAA-18/19:
+```
+AAPP_RUN_NOAA -i "HIRS AMSU-A AMSU-B" -g "HIRS" -o $output_dir $hrpt_file
+```
+
+* To create HIRS/AMSU/MHS Level 1D files for Metop-A/B:
+```
+AAPP_RUN_METOP -i "HIRS AMSU-A MHS" -g "HIRS" -d $input_dir -o $output_dir
+```
+
 ### Dynamic ancillary data for CSPP-IAPP
 
-Whille the use of dynamic ancillary data is not mandatory for CSPP-IAPP, for best results It is
-recommended that NCEP GDAS/GFS files are used (these files are downloaded and used by
-default. Optional METAR and radiosonde observations are not as significant, and by default
-CSPP-IAPP does not make use of these ancillary sources.
+While the use of dynamic ancillary data is not mandatory for execution of the CSPP-IAPP
+software, it is strongly recommended that National Center for Environmental Prediction (NCEP)
+Numerical Weather Prediction Global Data Assimilation (GDAS) and/or Global Forecast System
+(GFS) grib1 files be used. These 1 degree GRIB1 NWP files are automatically identified and
+fetched from the CSPP ancillary data server as part of the data processing based upon the date
+and time of the input satellite data. This is the software default behavior. The software requires
+one GDAS analysis file or GFS forecast file that most closely matches the date/time of the data
+set. A GDAS analysis file will be used if processing archived data. Real-time processing will
+use GFS forecast model files, since the GDAS files are not available until 6-9 hours after model
+run time.
 
-#### NCEP 6 hourly Global Forecast System (GFS) Numerical Weather Prediction
+Example 6 Hour GFS Model Forecast File Name: gfs.tYY.051201.pgrbfXX
+    where XX is the forecast time step for the YY hour analysis (run) time.
 
-Example File Name: gfs.tyy.051201.pgrbfxx
-where xx is the forecast time step for the yy hour analysis (run) time.
+Example 6 Hour GDAS Model Analysis File Name: gdas1.PGrbF00.020430.YYz
+    where YY is the analysis (run) time.
 
-#### NCEP 6 hourly Global Data Assimilation System (GDAS) analysis
+As part of the ancillary data pre-processing the selected GDAS/GFS files are converted to
+NetCDF.
 
-Example File Name: gdas1.PGrbF00.020430.00z
-
-#### Meteorological Terminal Aviation Routine Weather Report (METAR)
-
-The METAR surface observation filesMeteorological Terminal Aviation Routine Weather Report
-(METAR)
-
-#### Radiosonde Observations
 
 ## Using CSPP-IAPP
 
 ### CSPP-IAPP Driver Script
 
-Bash script `$CSPP_IAPP_HOME/iapp/iapp_level2.sh` checks for environment variable
-CSPP_IAPP_HOME and then invokes the Python script `$CSPP_IAPP_HOME/iapp/iapp_level2.py`,
+Bash script `$CSPP_IAPP_HOME/scripts/iapp_level2.sh` checks for environment variable
+CSPP_IAPP_HOME and then invokes the Python script `$CSPP_IAPP_HOME/scripts/iapp_level2.py`,
 which contains all the remaining logic to organize IAPP processing (i.e.: fetch dynamic ancillary
 data, transcode GRIB files to NetCDF, generate NetCDF output templates, linking of the various
 input files and LUTs into the working directory, and post execution cleanup). Script
@@ -247,13 +271,13 @@ input files and LUTs into the working directory, and post execution cleanup). Sc
 satellite, in that order...
 
 ```[bash]
-bash $CSPP_IAPP_HOME/iapp/iapp_level2.sh hirsl1d_M01_20150126_0204_12223.l1d 'metopb'
+bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh hirsl1d_M01_20150126_0204_12223.l1d 'metopb'
 ```
 
 Various command line options are available for `iapp_level2.sh` as shown below:
 
 ```
-bash $CSPP_IAPP_HOME/iapp/iapp_level2.sh
+bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh
 
 usage: iapp_level2.py [-h] [-w WORK_DIR] [-t TOPOGRAPHY_FILE]
                       [-f FORECAST_MODEL_FILE] [-r RADIOSONDE_DATA_FILE]
@@ -261,17 +285,17 @@ usage: iapp_level2.py [-h] [-w WORK_DIR] [-t TOPOGRAPHY_FILE]
                       [--retrieval_method {0,1}] [--lower_lat LOWER_LATITUDE]
                       [--upper_lat UPPER_LATITUDE] [--left_lon LEFT_LONGITUDE]
                       [--right_lon RIGHT_LONGITUDE] [--print_retrieval]
-                      [--print_l1d_header] [--debug] [-v]
-                      input_file {noaa18,noaa19,metopa,metopb}
+                      [--print_l1d_header] [--debug] [-v] [-q]
+                      input_file {noaa15,noaa16,noaa18,noaa19,metopa,metopb}
 
 Run the IAPP package on level-1d files to generate level-2 files.
 
 positional arguments:
   input_file            The fully qualified path to a single level-1d input
                         file.
-  {noaa18,noaa19,metopa,metopb}
-                        Satellite name. Possible values are... 'noaa18',
-                        'noaa19', 'metopa', 'metopb'.
+  {noaa15,noaa16,noaa18,noaa19,metopa,metopb}
+                        Satellite name. Possible values are... 'noaa15',
+                        'noaa16', 'noaa18', 'noaa19', 'metopa', 'metopb'.
 
 optional arguments:
   -h, --help            show this help message and exit
@@ -308,7 +332,101 @@ optional arguments:
   --print_l1d_header    Print the level 1D header, and exit. [default: False]
   --debug               Enable debug mode and avoid cleaning workspace.
                         [default: False]
-  -v, --verbose         Each occurrence increases verbosity 1 level from INFO:
+  -v, --verbose         each occurrence increases verbosity 1 level from INFO.
                         -v=DEBUG
+  -q, --quiet           Silence all output
 ```
 
+### Running the CSPP-IAPP Test Case
+
+To validate your installation, you can run the CSPP-IAPP test case. First unpack the test data
+and create work directories for each satellite…
+
+```[bash]
+for dirs in metopa  metopb  noaa15  noaa16  noaa18  noaa19; do mkdir -p Work/$dirs ; done
+tar xzvf tarballs/CSPP_IAPP_v1.0_TEST_DATA.tar.gz -C Work
+```
+
+and then execute the software
+
+```[bash]
+for files in $(ls Work/sample_data/input/noaa15/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'noaa15' -w Work/noaa15 ; \
+done
+```
+
+```[bash]
+for files in $(ls Work/sample_data/input/noaa16/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'noaa16' -w Work/noaa16 ; \
+done
+```
+
+```[bash]
+for files in $(ls Work/sample_data/input/noaa18/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'noaa18' -w Work/noaa18 ; \
+done
+```
+
+```[bash]
+for files in $(ls Work/sample_data/input/noaa19/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'noaa19' -w Work/noaa19 ; \
+done
+```
+
+```[bash]
+for files in $(ls Work/sample_data/input/metopa/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'metopa' -w Work/metopa ; \
+done
+```
+
+```[bash]
+for files in $(ls Work/sample_data/input/metopb/*.l1d); \
+do \
+    bash $CSPP_IAPP_HOME/scripts/iapp_level2.sh $files 'metopb' -w Work/metopb ; \
+done
+```
+
+Executing these commands will test the retrieval software on all 4 supported satellite/instrument
+groups. There are multiple input test files. The processing for data segment should take just a
+few seconds. For each input l1d data segment, one output CSPP-IAPP NetCDF3 file is created.
+If the CSPP-IAPP processing script runs normally, it will return a status code equal to zero. If the
+CSPP-IAPP processing script encounters a fatal error, it will return a non-zero status code.
+To verify your output files against the output files created at UW/SSEC, execute the following
+commands (make sure you are in the sample_data directory):
+
+```[bash]
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/metopa Work/metopa
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/metopb Work/metopb
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/noaa15 Work/noaa15
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/noaa16 Work/noaa16
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/noaa18 Work/noaa18
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/noaa19 Work/noaa19
+```
+
+This script compares the contents of the `Temperature_Retrieval` array of all of the NetCDF3
+work files with the verification files that are included with the package. The number of
+differences found for each array will be printed. There should be few, if any differences.
+
+For Metop-A, for example
+
+```[bash]
+$CSPP_IAPP_HOME/scripts/iapp_compare_netcdf.sh Work/sample_data/output/metopa Work/metopa
+```
+
+you should see...
+
+```
+Comparing Temperature_Retrieval array in Work/metopa/metopa_L2_d20150304_t0326149_e0328485_c20150402204101032104_iapp.nc to validation file
+SUCCESS: 0 pixels out of 4536 pixels are different
+Comparing Temperature_Retrieval array in Work/metopa/metopa_L2_d20150304_t1404324_e1410244_c20150402204111185493_iapp.nc to validation file
+SUCCESS: 0 pixels out of 12852 pixels are different
+Comparing Temperature_Retrieval array in Work/metopa/metopa_L2_d20150304_t1549108_e1554436_c20150402204120021899_iapp.nc to validation file
+SUCCESS: 0 pixels out of 11340 pixels are different
+All files passed
+SUCCESS
+```
