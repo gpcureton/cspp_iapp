@@ -1091,6 +1091,8 @@ def main():
         if iapp_retrieval_netcdf == -1:
             raise RuntimeError('Problem running IAPP executable.')
 
+        return_value = 0
+
     except Exception, err:
 
         LOG.warn( "{}".format(str(err)))
@@ -1101,6 +1103,8 @@ def main():
         files_to_remove = [coeff_dir]
         __cleanup(work_dir,files_to_remove,[])
         cleanup_required = False
+
+        return_value = 1
 
     # General Cleanup...
     if cleanup_required:
@@ -1118,7 +1122,7 @@ def main():
 
     LOG.info("Exiting CSPP IAPP ...\n")
 
-    return 0
+    return return_value
 
 
 if __name__=='__main__':
