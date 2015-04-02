@@ -267,8 +267,8 @@ def configure_logging(level=logging.WARNING, FILE=None):
         fm = logging.Formatter('%(asctime)s.%(msecs)03d (%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d:%(message)s',\
                 datefmt='%Y-%m-%d %H:%M:%S')
     else:
-        #fm = logging.Formatter('(%(levelname)s) : %(filename)s : %(funcName)s : %(lineno)d : %(message)s')
-        fm = logging.Formatter('(%(levelname)s) : %(message)s')
+        fm = logging.Formatter('%(asctime)s.%(msecs)03d (%(levelname)s) : %(message)s',\
+                datefmt='%Y-%m-%d %H:%M:%S')
 
     rootLogger = logging.getLogger()
     
