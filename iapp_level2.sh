@@ -28,3 +28,4 @@ fi
 
 $PY $CSPP_IAPP_HOME/scripts/iapp_level2.py "$@"
 
+exit $?
