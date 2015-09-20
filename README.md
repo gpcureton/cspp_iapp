@@ -1,43 +1,37 @@
 # CSPP-IAPP
 
 This document contains instructions for installation and operation of the Community Satellite
-Processing Package (CSPP) software package for transforming direct broadcast HIRS data for NOAA-18, NOAA-19,
-Metop-A and Metop-B, on Intel Linux computers. The CSPP-IAPP software package contains
-binary executable files and supporting static data files, as well as input and output files for
-verification of a correct local installation.
+Processing Package (CSPP) software package for transforming direct broadcast HIRS data for NOAA-15,
+NOAA-16, NOAA-18, NOAA-19, Metop-A and Metop-B, on Intel Linux computers. The CSPP-IAPP software
+package contains binary executable files and supporting static data files, as well as input and
+output files for verification of a correct local installation.
 
 ## Introduction
 
 ### Overview
 
-This document contains instructions for installation and operation
-of the Community Satellite Processing Package (CSPP) release of the
-International ATOVS Processing Package (IAPP) software for retrieving
-atmospheric temperature and moisture profiles, total ozone and other
-parameters in both clear and cloudy atmospheres from direct broadcase
-(DB) ATOVS radiance measurements.
+This document contains instructions for installation and operation of the Community Satellite
+Processing Package (CSPP) release of the International ATOVS Processing Package (IAPP) software for
+retrieving atmospheric temperature and moisture profiles, total ozone and other parameters in both
+clear and cloudy atmospheres from direct broadcast (DB) ATOVS radiance measurements.
 
-The IAPP algorithm, which operates on NOAA-18, NOAA-19, Metop-A and
-Metop-B data, retrieves the parameters in 4 steps: 1) cloud detection;
-2) bias adjustment; 3) regression retrieval; and 4) nonlinear iterative
-physical retrieval. A publication by 
+The IAPP algorithm, which operates on NOAA-15, NOAA-16, NOAA-18, NOAA-19, Metop-A and Metop-B
+data, retrieves the parameters in 4 steps: 1) cloud detection; 2) bias adjustment; 3) regression
+retrieval; and 4) nonlinear iterative physical retrieval. A publication by
 
 [Li, Wolf, Menzel, Zhang, Huang and Achtor, Journal of Applied Meteorology (August 2000)](http://dx.doi.org/10.1175/1520-0450(2000)039%3C1248:GSOTAF%3E2.0.CO;2)
 provides details on the algorithm.
 
-This CSPP release provides IAPP version 4.0 (April 2014), adapted and
-tested for operation in a real-time direct broadcast environment.
-The software contains binary executable files and supporting static
-data files, as well as input and output files for verification of a
-successful installation. The CSPP-IAPP software is available from the
-CSPP website:
+This CSPP release provides IAPP version 4.0 (April 2014), adapted and tested for operation in a
+real-time direct broadcast environment. The software contains binary executable files and supporting
+static data files, as well as input and output files for verification of a successful installation.
+The CSPP-IAPP software is available from the CSPP website:
 
 http://cimss.ssec.wisc.edu/cspp
 
-Software, test data, and documentation may be downloaded from this web
-site. Please use the ‘Contact Us’ form on the website to submit any
-questions or comments about CSPP. Source code for the IAPP package is
-included in this release.
+Software, test data, and documentation may be downloaded from this web site. Please use the
+‘Contact Us’ form on the website to submit any questions or comments about CSPP. Source code for
+the IAPP package is included in this release.
 
 ### System requirements
 
