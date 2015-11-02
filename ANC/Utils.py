@@ -318,7 +318,7 @@ def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
     timestamp = d.isoformat()
     timestamp = timestamp.replace(":","")
     logname= "iapp_grib2nc."+timestamp+".log"
-    logpath= path.join(log_dir, logname )
+    logpath= path.join(work_dir, logname )
     logfile_obj = open(logpath,'w')
 
     current_dir = os.getcwd()
