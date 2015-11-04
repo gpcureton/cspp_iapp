@@ -184,39 +184,12 @@ def __crash_cleanup(work_dir):
         LOG.warn( "{}".format(str(err)))
         ret_val = 1
 
-    #if not path.isdir(wreckage_dir):
-        #LOG.debug('Creating directory {}'.format(wreckage_dir))
-        #os.makedirs(wreckage_dir)
-
-    # Move files
-    #for filename in files_to_move:
-        #fullFileName = path.join(work_dir,filename)
-        #try :
-            #if path.isfile(fullFileName) and not path.islink(fullFileName):
-                #LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
-                #move(fullFileName,wreckage_dir)
-            #if path.islink(fullFileName):
-                #LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
-                #move(fullFileName,wreckage_dir)
-        #except Exception, err:
-            #LOG.warn( "{}".format(str(err)))
-
-    # Move log directory
-    #LOG.debug("Moving other directories ...")
-    #for dirname in dirs_to_move:
-        #fullDirName = path.join(work_dir,dirname)
-        #LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
-        #try :
-            #move(fullDirName,wreckage_dir)
-        #except Exception, err:
-            #LOG.warn( "{}".format(str(err)))
-
     return ret_val
 
 
 def __debug_cleanup(work_dir):
     '''
-    In debug mode, rename the working directory.
+    In debug mode, rename the run directory.
     '''
 
     # Create a log directory to contain the wreckage...
@@ -229,33 +202,6 @@ def __debug_cleanup(work_dir):
     except Exception, err:
         LOG.warn( "{}".format(str(err)))
         ret_val = 1
-
-    #if not path.isdir(wreckage_dir):
-        #LOG.debug('Creating directory {}'.format(wreckage_dir))
-        #os.makedirs(wreckage_dir)
-
-    # Move files
-    #for filename in files_to_move:
-        #fullFileName = path.join(work_dir,filename)
-        #try :
-            #if path.isfile(fullFileName) and not path.islink(fullFileName):
-                #LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
-                #move(fullFileName,wreckage_dir)
-            #if path.islink(fullFileName):
-                #LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
-                #move(fullFileName,wreckage_dir)
-        #except Exception, err:
-            #LOG.warn( "{}".format(str(err)))
-
-    # Move log directory
-    #LOG.debug("Removing other directories ...")
-    #for dirname in dirs_to_move:
-        #fullDirName = path.join(work_dir,dirname)
-        #LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
-        #try :
-            #move(fullDirName,wreckage_dir)
-        #except Exception, err:
-            #LOG.warn( "{}".format(str(err)))
 
     return ret_val
 
