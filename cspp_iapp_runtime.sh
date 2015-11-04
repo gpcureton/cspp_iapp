@@ -82,7 +82,7 @@ export PYTHONPATH=$CSPP_IAPP_HOME/common:${CSPP_IAPP_HOME}/scripts
 #environment cleanups
 unset LD_PRELOAD
 
-test -x "$PY" || echo "Python interpreter not available; please source cspp_env.sh"
+test -x "$PY" || echo "Python interpreter not available; please source cspp_iapp_env.sh"
 
 # Linux execution configuration
 export OSTYPE=`uname`

@@ -82,7 +82,7 @@ from tables import exceptions as pyEx
 from multiprocessing import Pool, Lock, Value, cpu_count
 
 from iapp_utils import sh, env 
-from iapp_utils import check_and_convert_path,check_existing_env_var
+from iapp_utils import check_and_convert_path,check_existing_env_var,CsppEnvironment,check_and_convert_env_var
 from iapp_utils import CSPP_RT_HOME, CSPP_RT_ANC_PATH, CSPP_RT_ANC_CACHE_DIR
 from iapp_utils import IAPP_HOME
 
@@ -147,78 +147,117 @@ def create_hirs_file_list(options):
 
     return hirs_files
 
-def __crash_cleanup(l1d_file, work_dir, files_to_move, dirs_to_move):
+
+def cleanup(objs_to_remove):
+    """
+    cleanup work directiory
+    remove evething except the geocat products
+    """
+    for file_obj in objs_to_remove:
+        try:
+            if os.path.islink(file_obj) :
+                LOG.info('Removing link: {}'.format(file_obj))
+                os.unlink(file_obj)
+            elif os.path.isdir(file_obj) :
+                LOG.info('Removing directory: {}'.format(file_obj))
+                rmtree(file_obj)
+            elif os.path.isfile(file_obj) :
+                LOG.info('Removing file: {}'.format(file_obj))
+                os.unlink(file_obj)
+        except Exception:
+            LOG.warn(traceback.format_exc())
+
+
+def __crash_cleanup(work_dir):
     '''
-    After a crash, move the wreckage to a log directory.
+    After a crash, rename the run directory.
     '''
 
     # Create a log directory to contain the wreckage...
-    wreckage_dir = "{}_crashed".format(path.join(work_dir,path.basename(l1d_file)))
-
+    wreckage_dir = "{}_crashed".format(work_dir)
     LOG.warn('IAPP crashed, moving run files to {}'.format(wreckage_dir))
-    if not path.isdir(wreckage_dir):
-        LOG.debug('Creating directory {}'.format(wreckage_dir))
-        os.makedirs(wreckage_dir)
+
+    ret_val = 0
+    try :
+        os.rename(work_dir,wreckage_dir)
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        ret_val = 1
+
+    #if not path.isdir(wreckage_dir):
+        #LOG.debug('Creating directory {}'.format(wreckage_dir))
+        #os.makedirs(wreckage_dir)
 
     # Move files
-    for filename in files_to_move:
-        fullFileName = path.join(work_dir,filename)
-        try :
-            if path.isfile(fullFileName) and not path.islink(fullFileName):
-                LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
-                move(fullFileName,wreckage_dir)
-            if path.islink(fullFileName):
-                LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
-                move(fullFileName,wreckage_dir)
-        except Exception, err:
-            LOG.warn( "{}".format(str(err)))
+    #for filename in files_to_move:
+        #fullFileName = path.join(work_dir,filename)
+        #try :
+            #if path.isfile(fullFileName) and not path.islink(fullFileName):
+                #LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
+                #move(fullFileName,wreckage_dir)
+            #if path.islink(fullFileName):
+                #LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
+                #move(fullFileName,wreckage_dir)
+        #except Exception, err:
+            #LOG.warn( "{}".format(str(err)))
 
     # Move log directory
-    LOG.debug("Moving other directories ...")
-    for dirname in dirs_to_move:
-        fullDirName = path.join(work_dir,dirname)
-        LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
-        try :
-            move(fullDirName,wreckage_dir)
-        except Exception, err:
-            LOG.warn( "{}".format(str(err)))
+    #LOG.debug("Moving other directories ...")
+    #for dirname in dirs_to_move:
+        #fullDirName = path.join(work_dir,dirname)
+        #LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
+        #try :
+            #move(fullDirName,wreckage_dir)
+        #except Exception, err:
+            #LOG.warn( "{}".format(str(err)))
+
+    return ret_val
 
 
-def __debug_cleanup(l1d_file, work_dir, files_to_move, dirs_to_move):
+def __debug_cleanup(work_dir):
     '''
-    In debug mode, move the runfiles log directory.
+    In debug mode, rename the working directory.
     '''
 
     # Create a log directory to contain the wreckage...
-    wreckage_dir = "{}_debug".format(path.join(work_dir,path.basename(l1d_file)))
-
+    wreckage_dir = "{}_debug".format(work_dir)
     LOG.info('Debugging mode, moving run files to {}'.format(wreckage_dir))
-    if not path.isdir(wreckage_dir):
-        LOG.debug('Creating directory {}'.format(wreckage_dir))
-        os.makedirs(wreckage_dir)
+
+    ret_val = 0
+    try :
+        os.rename(work_dir,wreckage_dir)
+    except Exception, err:
+        LOG.warn( "{}".format(str(err)))
+        ret_val = 1
+
+    #if not path.isdir(wreckage_dir):
+        #LOG.debug('Creating directory {}'.format(wreckage_dir))
+        #os.makedirs(wreckage_dir)
 
     # Move files
-    for filename in files_to_move:
-        fullFileName = path.join(work_dir,filename)
-        try :
-            if path.isfile(fullFileName) and not path.islink(fullFileName):
-                LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
-                move(fullFileName,wreckage_dir)
-            if path.islink(fullFileName):
-                LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
-                move(fullFileName,wreckage_dir)
-        except Exception, err:
-            LOG.warn( "{}".format(str(err)))
+    #for filename in files_to_move:
+        #fullFileName = path.join(work_dir,filename)
+        #try :
+            #if path.isfile(fullFileName) and not path.islink(fullFileName):
+                #LOG.debug('Moving file {} to {}'.format(fullFileName,wreckage_dir))
+                #move(fullFileName,wreckage_dir)
+            #if path.islink(fullFileName):
+                #LOG.debug('Moving link {} to {}'.format(fullFileName,wreckage_dir))
+                #move(fullFileName,wreckage_dir)
+        #except Exception, err:
+            #LOG.warn( "{}".format(str(err)))
 
     # Move log directory
-    LOG.debug("Removing other directories ...")
-    for dirname in dirs_to_move:
-        fullDirName = path.join(work_dir,dirname)
-        LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
-        try :
-            move(fullDirName,wreckage_dir)
-        except Exception, err:
-            LOG.warn( "{}".format(str(err)))
+    #LOG.debug("Removing other directories ...")
+    #for dirname in dirs_to_move:
+        #fullDirName = path.join(work_dir,dirname)
+        #LOG.debug('Moving dir {} to {}'.format(fullDirName,wreckage_dir))
+        #try :
+            #move(fullDirName,wreckage_dir)
+        #except Exception, err:
+            #LOG.warn( "{}".format(str(err)))
+
+    return ret_val
 
 
 def __cleanup(work_dir, files_to_remove, dirs_to_remove):
@@ -239,7 +278,7 @@ def __cleanup(work_dir, files_to_remove, dirs_to_remove):
         except Exception, err:
             LOG.warn( "{}".format(str(err)))
 
-    # Remove log directory
+    # Remove directories
     LOG.debug("Removing other directories ...")
     for dirname in dirs_to_remove:
         fullDirName = path.join(work_dir,dirname)
@@ -575,7 +614,7 @@ def create_retrieval_netcdf_template(work_dir):
     return 0
 
 
-def run_iapp_exe(options,Level1D_obj,work_dir,run_dir,log_dir):
+def run_iapp_exe(options,Level1D_obj,work_dir,run_dir):
     '''Run the IAPP executable'''
 
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
@@ -601,7 +640,7 @@ def run_iapp_exe(options,Level1D_obj,work_dir,run_dir,log_dir):
     timestamp = timestamp.replace(":","")
     #logname= "iapp_main."+timestamp+".log"
     logname = "{}_{}.log".format(run_dir,timestamp)
-    logpath= path.join(log_dir, logname )
+    logpath= path.join(run_dir, logname )
     logfile_obj = open(logpath,'w')
 
     current_dir = os.getcwd()
@@ -689,7 +728,7 @@ def run_iapp_exe(options,Level1D_obj,work_dir,run_dir,log_dir):
     return iapp_retrieval_netcdf
 
 
-def run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir,log_dir):
+def run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir):
     '''Pretend to run the IAPP executable'''
 
     IAPP_EXE_PATH=path.abspath(path.join(IAPP_HOME,'iapp','bin'))
@@ -709,7 +748,7 @@ def run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir,log_dir):
     timestamp = timestamp.replace(":","")
     #logname= "iapp_main."+timestamp+".log"
     logname = "{}_{}.log".format(run_dir,timestamp)
-    logpath= path.join(log_dir, logname )
+    logpath= path.join(run_dir, logname )
     logfile_obj = open(logpath,'w')
 
     t1 = time()
@@ -775,6 +814,177 @@ def run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir,log_dir):
     return iapp_retrieval_netcdf
 
 
+def hirs_to_L2(work_dir, options):
+
+    attempted_runs = []
+    successful_runs = []
+    crashed_runs = []
+    problem_runs = []
+
+    files_to_remove = []
+    dirs_to_remove = []
+    files_to_move = []
+    dirs_to_move = []
+
+    hirs_files = create_hirs_file_list(options)
+
+    if hirs_files:
+
+        for hirs_file in hirs_files:
+
+            LOG.info("\n\n>>> Processing hirs file {}\n".format(hirs_file))
+            LOG.debug("work_dir = {}".format(work_dir))
+
+            linked_files = {}
+            cleanup_required = True
+            ret_val = 0
+
+            # Setting the input dir
+            hirs_dir = os.path.dirname(hirs_file)
+            hirs_file = os.path.basename(hirs_file)
+            attempted_runs.append(hirs_file)
+
+            # Create the run dir for this area file
+            log_idx = 0
+            while True:
+                run_dir = os.path.join(work_dir,"iapp_l2_{}_run_{}".format(hirs_file,log_idx))
+                if not os.path.exists(run_dir):
+                    LOG.debug("Creating run dir {}".format(run_dir))
+                    os.makedirs(run_dir)
+                    break
+                else:
+                    log_idx += 1
+
+                LOG.debug("doing a thing")
+
+            try:
+
+                # Parse the level 1D file header
+                Level1D_obj = Level1D(path.join(hirs_dir,hirs_file))
+
+                if options.print_l1d_header:
+                    return 0
+
+                # Specify the GRIB1 GDAS/GFS ancillary file
+                if options.forecast_model_file is None:
+
+                    # Retrieve the required GRIB1 GDAS/GFS ancillary data...
+                    gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
+                    LOG.info('Retrieved GFS files: {}'.format(gribFiles))
+
+                    # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
+                    grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0],run_dir)
+
+                    # If IAPP failed, remove the link to the coefficients, and set the debug option
+                    # to preserve the wreckage...
+                    if grib_netcdf_file == -1:
+                        raise RuntimeError('Transcoding GDAS/GFS to NetCDF failed')
+
+                    LOG.info('Transcoded GDAS/GFS NetCDF file: {}'.format(grib_netcdf_file))
+
+                else:
+                    grib_netcdf_file = options.forecast_model_file
+
+                GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
+                LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
+
+
+                # Specify the METAR surface observation file
+                if options.surface_obsv_file is None:
+
+                    metar_netcdf_file = ""
+
+                    # Retrieve the METAR Surface Observation ancillary data...
+                    #metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
+                    #LOG.info('Retrieved METAR files: {}'.format(metarFiles))
+
+                    # Transcode METAR ancillary data to NetCDF
+                    #metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir
+                    #LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
+
+                else:
+                    metar_netcdf_file = options.surface_obsv_file
+
+
+                # Set up some path variables
+                LOG.debug('VENDOR Location: {}'.format(IAPP_HOME))
+                NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
+                LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
+
+                # Create a list of files to link into the work directory, and link them...
+                files_to_link = {
+                        'gdas_gfs_netcdf_file' : grib_netcdf_file, 
+                        'metar_file' : metar_netcdf_file,
+                        'topography_file' : path.join(NETCDF_FILES_PATH,'topography.nc'),
+                        'level1d_file' : path.join(hirs_dir,hirs_file)
+                        }
+                linked_files.update(link_run_files(files_to_link, run_dir))
+
+                # Create the runfile
+                template_dict = {}
+                template_dict['level1d_file'] = linked_files['level1d_file']
+                template_dict['topography_file'] = linked_files['topography_file']
+                template_dict['gdas_gfs_netcdf_file'] = linked_files['gdas_gfs_netcdf_file']
+                template_dict['metar_file'] = linked_files['metar_file']
+                template_dict['radiosonde_file'] = ''
+                template_dict['retrieval_method'] = options.retrieval_method
+                template_dict['print_option'] = 1 if options.print_retrieval else 0
+                template_dict['satellite_name'] = options.satellite
+                template_dict['instrument_combo'] = options.instrument_combo
+                template_dict['retrieval_bounds'] = " {:1.0f}. {:1.0f}. {:1.0f}. {:1.0f}.".format(
+                        options.lower_latitude,options.upper_latitude,
+                        options.left_longitude,options.right_longitude)
+
+                generate_iapp_runfile(run_dir,**template_dict)
+
+                # Generate template netcdf retrieval file
+                if create_retrieval_netcdf_template(run_dir) != 0:
+                    raise RuntimeError('There was a problem creating NetCDF template file.')
+
+                # Create  link to the IAPP coefficient dir
+                coeff_dir = link_iapp_coeffs(run_dir)
+                files_to_remove.append(coeff_dir)
+
+                # Run the IAPP executable
+                #iapp_retrieval_netcdf = run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir)
+                iapp_retrieval_netcdf = run_iapp_exe(options,Level1D_obj,work_dir,run_dir)
+
+                # If IAPP failed, remove the link to the coefficients, and set the debug option
+                # to preserve the wreckage...
+                if iapp_retrieval_netcdf == -1:
+                    raise RuntimeError('Problem running IAPP executable.')
+
+                successful_runs.append(hirs_file)
+                return_value = 0
+
+                if options.cspp_debug:
+                    LOG.info('Performing debugging cleanup of working directory...')
+                    _ = __debug_cleanup(run_dir)
+                else:
+                    cleanup([run_dir])
+
+            except Exception, err:
+
+                crashed_runs.append(hirs_file)
+
+                LOG.warn( "{}".format(str(err)))
+                LOG.debug(traceback.format_exc())
+
+                __crash_cleanup(run_dir)
+                cleanup_required = False
+
+                return_value = 1
+
+    attempted_runs  = list(set(attempted_runs))
+    successful_runs = list(set(successful_runs))
+    crashed_runs    = list(set(crashed_runs))
+    problem_runs    = list(set(problem_runs))
+
+    cleanup(files_to_remove)
+
+    return attempted_runs,successful_runs,crashed_runs,problem_runs
+
+
 def _argparse():
     '''
     Method to encapsulate the option parsing and various setup tasks.
@@ -807,13 +1017,8 @@ def _argparse():
 
     description = '''Run the IAPP package on level-1d files to generate level-2 files.'''
     usage = "usage: %prog [mandatory args] [options]"
-    version = __version__
 
-    parser = argparse.ArgumentParser(
-                                     #usage=usage,
-                                     #version=version,
-                                     description=description
-                                     )
+    parser = argparse.ArgumentParser(description=description)
 
     # Mandatory/positional arguments
 
@@ -989,12 +1194,11 @@ def _argparse():
                       help='''Silence all output'''
                       )
 
-    #parser.add_argument('-V','--version',
-                      #action='version',
-                      #version='''{}\n
-                                 #%(prog)s (myprog version 0.1)'''.format(version)
-                      ##version='''%(prog)s (myprog version 0.1)'''
-                      #)
+    parser.add_argument('-V', '--version', 
+                     action='version',                    
+                     version='''CSPP-IAPP v1.0''',
+                     help='''Print the CSPP-IAPP package version'''
+                     )
 
     ####################################################
 
@@ -1003,8 +1207,7 @@ def _argparse():
     levels = [logging.ERROR, logging.WARN, logging.INFO, logging.DEBUG]
     verbosity = 0 if args.quiet else args.verbosity
     level = levels[verbosity if verbosity < 4 else 3]
-    work_dir = check_and_convert_path("WORK_DIR",
-            path.abspath(args.work_dir))
+    work_dir = check_and_convert_path("WORK_DIR",path.abspath(args.work_dir))
     d = datetime.now()
     timestamp = d.isoformat()
     timestamp = timestamp.replace(":","")
@@ -1016,13 +1219,12 @@ def _argparse():
     if not path.isdir(work_dir):
         LOG.info('creating directory {}'.format(work_dir))
         os.makedirs(work_dir)
-        os.makedirs(path.join(work_dir,'run'))
-    log_dir = path.join(work_dir, 'log')
-    if not path.isdir(log_dir):
-        LOG.debug('creating directory {}'.format(log_dir))
-        os.makedirs(log_dir)
 
-    return args,work_dir ,log_dir
+    docleanup = True
+    if args.cspp_debug is True:
+        docleanup = False
+
+    return args,work_dir,docleanup
 
 
 
@@ -1032,7 +1234,20 @@ def main():
     """
 
     # Read in the command line options
-    options,work_dir,log_dir = _argparse()
+    options,work_dir,docleanup = _argparse()
+
+    # Check various paths and environment variables.
+    try:
+
+        cspp_iapp_home = check_and_convert_env_var('CSPP_IAPP_HOME')
+        cache_dir = check_and_convert_env_var('CSPP_GEO_ANC_CACHE', check_write=True,
+                                                     default_value=os.path.join(cspp_iapp_home, 'anc/cache'))
+        ver = check_existing_env_var('DPE_VER')
+
+    except CsppEnvironment as e:
+        LOG.error( e.value )
+        LOG.error('Installation error, Make sure all software components were installed.')
+        return 2
 
     LOG.info("Starting CSPP IAPP ...")
 
@@ -1041,186 +1256,21 @@ def main():
     LOG.debug("CSPP_RT_ANC_PATH:      {}".format(CSPP_RT_ANC_PATH))
     LOG.debug("CSPP_RT_ANC_CACHE_DIR: {}".format(CSPP_RT_ANC_CACHE_DIR))
 
-    attempted_runs = []
-    successful_runs = []
-    crashed_runs = []
-    problem_runs = []
+    return_value = 0
+    try:
 
-    files_to_remove = []
-    dirs_to_remove = []
+        attempted_runs,successful_runs,crashed_runs,problem_runs = hirs_to_L2(
+                work_dir, options)
 
-    print "options.input_file = {}".format(options.input_file)
-    hirs_files = create_hirs_file_list(options)
-    print "hirs_files = {}".format(hirs_files)
+        print ""
+        LOG.info('attempted_runs    {}'.format(attempted_runs))
+        LOG.info('successful_runs   {}'.format(successful_runs))
+        LOG.info('crashed_runs      {}'.format(crashed_runs))
+        LOG.info('problem_runs      {}'.format(problem_runs))
 
-    if hirs_files:
-
-        for hirs_file in hirs_files:
-
-            LOG.info("\n\n>>> Processing hirs file {}\n".format(hirs_file))
-            LOG.debug("work_dir = {}".format(work_dir))
-
-            linked_files = {}
-            cleanup_required = True
-            ret_val = 0
-
-            # Setting the input dir
-            hirs_dir = os.path.dirname(hirs_file)
-            hirs_file = os.path.basename(hirs_file)
-            attempted_runs.append(hirs_file)
-
-            # Create the run dir for this area file
-            log_idx = 0
-            while True:
-                run_dir = os.path.join(work_dir,"iapp_l2_{}_run_{}".format(hirs_file,log_idx))
-                if not os.path.exists(run_dir):
-                    os.makedirs(run_dir)
-                    break
-                else:
-                    log_idx += 1
-
-            try:
-
-                # Parse the level 1D file header
-                Level1D_obj = Level1D(path.join(hirs_dir,hirs_file))
-
-                if options.print_l1d_header:
-                    return 0
-
-                # Specify the GRIB1 GDAS/GFS ancillary file
-                if options.forecast_model_file is None:
-
-                    # Retrieve the required GRIB1 GDAS/GFS ancillary data...
-                    gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
-                    LOG.info('Retrieved GFS files: {}'.format(gribFiles))
-
-                    # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
-                    grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0],run_dir,log_dir)
-
-                    # If IAPP failed, remove the link to the coefficients, and set the debug option
-                    # to preserve the wreckage...
-                    if grib_netcdf_file == -1:
-                        raise RuntimeError('Transcoding GDAS/GFS to NetCDF failed')
-
-                    LOG.info('Transcoded GDAS/GFS NetCDF file: {}'.format(grib_netcdf_file))
-
-                else:
-                    grib_netcdf_file = options.forecast_model_file
-
-                GRIB_FILE_PATH=path.abspath(path.dirname(grib_netcdf_file))
-                LOG.debug('GRIB_FILE_PATH : {}'.format(GRIB_FILE_PATH))
-
-
-                # Specify the METAR surface observation file
-                if options.surface_obsv_file is None:
-
-                    metar_netcdf_file = ""
-
-                    # Retrieve the METAR Surface Observation ancillary data...
-                    #metarFiles = retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH)
-                    #LOG.info('Retrieved METAR files: {}'.format(metarFiles))
-
-                    # Transcode METAR ancillary data to NetCDF
-                    #metar_netcdf_file = transcode_METAR_files(metarFiles[0],work_dir,log_dir)
-                    #LOG.info('Transcoded METAR NetCDF file: {}'.format(metar_netcdf_file))
-
-                else:
-                    metar_netcdf_file = options.surface_obsv_file
-
-
-                # Set up some path variables
-                LOG.debug('VENDOR Location: {}'.format(IAPP_HOME))
-                NETCDF_FILES_PATH=path.abspath(path.join(IAPP_HOME,'iapp','netcdf_files'))
-                LOG.debug('NETCDF_FILES_PATH : {}'.format(NETCDF_FILES_PATH))
-
-                # Create a list of files to link into the work directory, and link them...
-                files_to_link = {
-                        'gdas_gfs_netcdf_file' : grib_netcdf_file, 
-                        'metar_file' : metar_netcdf_file,
-                        'topography_file' : path.join(NETCDF_FILES_PATH,'topography.nc'),
-                        'level1d_file' : path.join(hirs_dir,hirs_file)
-                        }
-                linked_files.update(link_run_files(files_to_link, run_dir))
-
-                # Create the runfile
-                template_dict = {}
-                template_dict['level1d_file'] = linked_files['level1d_file']
-                template_dict['topography_file'] = linked_files['topography_file']
-                template_dict['gdas_gfs_netcdf_file'] = linked_files['gdas_gfs_netcdf_file']
-                template_dict['metar_file'] = linked_files['metar_file']
-                template_dict['radiosonde_file'] = ''
-                template_dict['retrieval_method'] = options.retrieval_method
-                template_dict['print_option'] = 1 if options.print_retrieval else 0
-                template_dict['satellite_name'] = options.satellite
-                template_dict['instrument_combo'] = options.instrument_combo
-                template_dict['retrieval_bounds'] = " {:1.0f}. {:1.0f}. {:1.0f}. {:1.0f}.".format(
-                        options.lower_latitude,options.upper_latitude,
-                        options.left_longitude,options.right_longitude)
-
-                generate_iapp_runfile(run_dir,**template_dict)
-
-                # Generate template netcdf retrieval file
-                if create_retrieval_netcdf_template(run_dir) != 0:
-                    raise RuntimeError('There was a problem creating NetCDF template file.')
-
-                # Create a link to the IAPP coefficient dir
-                coeff_dir = link_iapp_coeffs(run_dir)
-                files_to_remove.append(coeff_dir)
-
-                #sys.exit(0)
-
-                # Run the IAPP executable
-                #iapp_retrieval_netcdf = run_iapp_exe_dummy(options,Level1D_obj,work_dir,run_dir,log_dir)
-                iapp_retrieval_netcdf = run_iapp_exe(options,Level1D_obj,work_dir,run_dir,log_dir)
-
-                # If IAPP failed, remove the link to the coefficients, and set the debug option
-                # to preserve the wreckage...
-                if iapp_retrieval_netcdf == -1:
-                    raise RuntimeError('Problem running IAPP executable.')
-
-                successful_runs.append(hirs_file)
-                dirs_to_remove.append(run_dir)
-                return_value = 0
-
-            except Exception, err:
-
-                crashed_runs.append(hirs_file)
-
-                LOG.warn( "{}".format(str(err)))
-                LOG.debug(traceback.format_exc())
-
-                files_to_move = linked_files.values() + ['iapp.filenames','uwretrievals.nc']
-                __crash_cleanup(hirs_file, work_dir, files_to_move ,[log_dir])
-                __cleanup(work_dir,files_to_remove,[])
-                cleanup_required = False
-
-                return_value = 1
-
-    attempted_runs  = list(set(attempted_runs))
-    successful_runs = list(set(successful_runs))
-    crashed_runs    = list(set(crashed_runs))
-    problem_runs    = list(set(problem_runs))
-
-    print ""
-    LOG.info('attempted_runs    {}'.format(attempted_runs))
-    LOG.info('successful_runs   {}'.format(successful_runs))
-    LOG.info('crashed_runs      {}'.format(crashed_runs))
-    LOG.info('problem_runs      {}'.format(problem_runs))
-
-    # General Cleanup...
-    if cleanup_required:
-        if options.cspp_debug:
-            LOG.info('Performing debugging cleanup of working directory...')
-            files_to_move = linked_files.values() + ['iapp.filenames','uwretrievals.nc']
-            __debug_cleanup(options.input_file, work_dir, files_to_move ,[log_dir])
-            files_to_remove = [coeff_dir]
-            __cleanup(work_dir,files_to_remove,[])
-        else:
-            LOG.info('Performing routine cleanup of working directory...')
-            files_to_remove = linked_files.values() + ['iapp.filenames',coeff_dir]
-            dirs_to_remove = dirs_to_remove + [log_dir]
-            __cleanup(work_dir,files_to_remove, dirs_to_remove)
-
+    except Exception:
+        LOG.error(traceback.format_exc())
+        return_value = 1
 
     LOG.info("Exiting CSPP IAPP ...\n")
 

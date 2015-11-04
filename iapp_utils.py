@@ -106,6 +106,12 @@ def _testParser():
     print dt
 
 
+class CsppEnvironment(Exception):
+    def __init__(self, value):
+        self.value = value
+    def __str__(self):
+        return repr(self.value)
+
 def check_and_convert_path(key,a_path,check_write=False):
     """
     Make sure the path or paths specified exist

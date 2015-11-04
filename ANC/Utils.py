@@ -276,7 +276,7 @@ def retrieve_NCEP_grib_files(Level1D_obj):
     return gribFiles
 
 
-def transcode_NCEP_grib_files(grib1_file,work_dir,log_dir):
+def transcode_NCEP_grib_files(grib1_file,work_dir):
 
     IAPP_DECODERS_PATH=path.abspath(path.join(IAPP_HOME,'decoders'))
     LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
@@ -448,7 +448,7 @@ def retrieve_METAR_files(Level1D_obj,GRIB_FILE_PATH):
     return metarFiles
 
 
-def transcode_METAR_files(metar_file,work_dir,log_dir):
+def transcode_METAR_files(metar_file,work_dir):
 
     IAPP_DECODERS_PATH=path.abspath(path.join(IAPP_HOME,'decoders','bin'))
     LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
@@ -467,7 +467,7 @@ def transcode_METAR_files(metar_file,work_dir,log_dir):
     timestamp = d.isoformat()
     timestamp = timestamp.replace(":","")
     logname= "iapp_metar_to_nc."+timestamp+".log"
-    logpath= path.join(log_dir, logname )
+    logpath= path.join(work_dir, logname )
     logfile_obj = open(logpath,'w')
 
     current_dir = os.getcwd()
