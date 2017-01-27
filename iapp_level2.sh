@@ -1,5 +1,4 @@
 #!/bin/bash
-# $Id: iapp_level2.sh 2350 2015-02-11 17:27:10Z geoffc $
 #
 # Wrapper script for iapp_level2.py, which runs the 
 # CSPP IAPP package.

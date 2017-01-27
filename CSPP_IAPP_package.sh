@@ -1,18 +1,12 @@
 #!/bin/bash
 #
 # University of Wisconsin - Madison,  Space Science Engineering Center (SSEC)
-# file_Date = '$Date$'
-# file_Revision = '$Revision$'
-# file_Author = '$Author$'
-# file_HeadURL = '$HeadURL$'
-# file_Id = '$Id$'
-#
-#
 #
 # Example command line...
 #
 # sh $CSPP_HOME/../CSPP_repo/trunk/scripts/edr/CSPP_ViirsEdrMasks_Package.sh $CSPP_HOME/viirs/edr/viirs_edr_masks.sh "--input_files=../../sample_data/viirs/edr/input/ScottTest/HDF5/unpackTest/ --work_directory=./  -vvv"
 #
+# Licensed under GNU GPLv3.
 #
 
 trace_cmd()

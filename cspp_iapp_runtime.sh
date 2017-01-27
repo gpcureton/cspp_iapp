@@ -1,5 +1,4 @@
 #!/bin/bash
-# $Id$
 # Contains some package specific setup.
 #
 # Copyright 2011-2013, University of Wisconsin Regents.

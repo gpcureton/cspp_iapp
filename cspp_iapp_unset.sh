@@ -1,4 +1,5 @@
 #!/bin/bash
+# Licensed under GNU GPLv3.
 
 unset CSPP_RT_ANC_CACHE_DIR
 unset CSPP_RT_ANC_PATH

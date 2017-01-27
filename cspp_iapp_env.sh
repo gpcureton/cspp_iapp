@@ -1,6 +1,6 @@
 #!/bin/bash
-# $Id$
 # Environment script for CSPP / IAPP
+# Licensed under GNU GPLv3.
 
 
 test -n "$CSPP_IAPP_HOME" || echo "CSPP_IAPP_HOME is not set. Please set this environment variable to the install location of CSPP software packages. (When installed, \$CSPP_IAPP_HOME/ADL is a directory.)"
