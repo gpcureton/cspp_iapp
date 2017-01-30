@@ -14,39 +14,20 @@ import os
 import sys
 import logging
 import traceback
-from os import path, uname, environ
+from os import path
 import string
 import uuid
-from datetime import datetime, timedelta
-
-import numpy as np
-from numpy import ma
+from datetime import datetime
 
 import shlex
 import subprocess
-from subprocess import CalledProcessError, call
-from shutil import rmtree, copyfile, move
+from subprocess import CalledProcessError
+from shutil import move
 from glob import glob
 
-import pygrib
-
-from iapp_utils import sh, env
-from iapp_utils import CSPP_RT_HOME, CSPP_RT_ANC_PATH, \
-    CSPP_RT_ANC_CACHE_DIR, env, JPSS_REMOTE_ANC_DIR
-
+from iapp_utils import sh, env, execute_binary_captured_inject_io
+from iapp_utils import CSPP_RT_HOME, CSPP_RT_ANC_CACHE_DIR, JPSS_REMOTE_ANC_DIR
 from iapp_utils import IAPP_HOME
-
-# Plotting stuff
-import matplotlib
-import matplotlib.cm as cm
-from matplotlib.colors import ListedColormap
-from matplotlib.figure import Figure
-
-matplotlib.use('Agg')
-from matplotlib.backends.backend_agg import FigureCanvasAgg as FigureCanvas
-
-# This must come *after* the backend is specified.
-import matplotlib.pyplot as ppl
 
 # every module should have a LOG object
 LOG = logging.getLogger(__name__)
@@ -88,8 +69,10 @@ def getURID():
 
 
 def getAscLine(fileObj, searchString):
-    ''' Parses a file and searches for a string in each line, returning
-        the line if the string is found.'''
+    '''
+    Parses a file and searches for a string in each line, returning
+    the line if the string is found.
+    '''
 
     dataStr = ''
     try:
@@ -111,9 +94,11 @@ def getAscLine(fileObj, searchString):
 
 
 def getAscStructs(fileObj, searchString, linesOfContext):
-    ''' Parses a file and searches for a string in each line, returning
-        the line (and a given number of lines of context) if the string
-        is found.'''
+    '''
+    Parses a file and searches for a string in each line, returning
+    the line (and a given number of lines of context) if the string
+    is found.
+    '''
 
     dataList = []
     data_count = 0
@@ -151,7 +136,9 @@ def getAscStructs(fileObj, searchString, linesOfContext):
 
 
 def check_exe(exeName):
-    ''' Check that a required executable is in the path...'''
+    '''
+    Check that a required executable is in the path...
+    '''
     try:
         retVal = sh(['which', exeName])
         LOG.debug("{} is in the PATH...".format(exeName))
@@ -162,7 +149,9 @@ def check_exe(exeName):
 
 
 def check_exe2(program):
-    ''' Check that a required executable is in the path...'''
+    '''
+    Check that a required executable is in the path...
+    '''
     def is_exe(fpath):
         return os.path.isfile(fpath) and os.access(fpath, os.X_OK)
 
@@ -171,17 +160,19 @@ def check_exe2(program):
         if is_exe(program):
             return program
     else:
-        for path in os.environ["PATH"].split(os.pathsep):
-            path = path.strip('"')
-            exe_file = os.path.join(path, program)
+        for paths in string.split(os.environ["PATH"], os.pathsep):
+            paths = paths.strip('"')
+            exe_file = os.path.join(paths, program)
             if is_exe(exe_file):
                 return exe_file
 
     return None
 
 
-def retrieve_NCEP_grib_files(Level1D_obj):
-    ''' Download the GRIB files which cover the dates of the geolocation files.'''
+def retrieve_NCEP_grib_files(Level1D_obj, run_dir):
+    '''
+    Download the GRIB files which cover the dates of the geolocation files.
+    '''
 
     ANC_SCRIPTS_PATH = path.join(CSPP_RT_HOME, 'scripts', 'ANC')
 
@@ -204,13 +195,7 @@ def retrieve_NCEP_grib_files(Level1D_obj):
         if not path.exists(scriptPath):
             LOG.error('GRIB ancillary retrieval script {} can not be found, aborting.'
                       .format(scriptPath))
-            #sys.exit(1)
-
-    # Get the time stamp for the input file
-    dateStamp = Level1D_obj.timeObj_start.strftime("%Y%m%d")
-
-    timeObj = datetime.utcnow()
-    now_time_stamp = datetime.utcnow().strftime("%Y%m%d%H%M%S%f")
+            return [], 1
 
     script_args = '{} {}'.format(Level1D_obj.timeObj_mid.strftime("%Y%j"),
                                  Level1D_obj.timeObj_mid.strftime("%H%M")
@@ -220,36 +205,50 @@ def retrieve_NCEP_grib_files(Level1D_obj):
 
     gribFiles = []
 
+    current_dir = os.getcwd()
+
     try:
-        LOG.info('Retrieving NCEP files for {} ...'
-                 .format(Level1D_obj.pass_mid_str))
+        # Call the retrieval script, writing the logging output to a file
+        LOG.info('Retrieving NCEP files for {} ...'.format(Level1D_obj.pass_mid_str))
         cmdStr = '{} {}'.format(scriptPath, script_args)
         LOG.debug('\t{}'.format(cmdStr))
         args = shlex.split(cmdStr)
 
-        procRetVal = 0
-        procObj = subprocess.Popen(args,
-                                   env=env(CSPP_EDR_ANC_CACHE_DIR=CSPP_RT_ANC_CACHE_DIR,
-                                           CSPP_RT_HOME=CSPP_RT_HOME,
-                                           JPSS_REMOTE_ANC_DIR=JPSS_REMOTE_ANC_DIR),
-                                   bufsize=0, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        procObj.wait()
-        procRetVal = procObj.returncode
+        # Contruct a dictionary of error conditions which should be logged.
+        error_keys = ['FAILURE', 'failure', 'FAILED', 'failed', 'FAIL', 'fail',
+                      'ERROR', 'error', 'ERR', 'err',
+                      'ABORTING', 'aborting', 'ABORT', 'abort']
+        error_dict = {x: {'pattern': x, 'count_only': False, 'count': 0, 'max_count': None,
+                      'log_str': ''} for x in error_keys}
+        error_dict['error_keys'] = error_keys
 
-        procOutput = procObj.stdout.readlines()
+        os.chdir(run_dir)
+        env_vars = {'CSPP_EDR_ANC_CACHE_DIR': CSPP_RT_ANC_CACHE_DIR,
+                    'CSPP_RT_HOME': CSPP_RT_HOME,
+                    'JPSS_REMOTE_ANC_DIR': JPSS_REMOTE_ANC_DIR}
+        rc_grib_ret, exe_out = execute_binary_captured_inject_io(
+                run_dir, cmdStr, error_dict,
+                log_execution=False, log_stdout=False, log_stderr=False,
+                **env_vars)
 
-        for lines in procOutput:
-            LOG.debug(lines)
-            if "GDAS/GFS file" in lines:
-                lines = string.replace(lines, 'GDAS/GFS file: ', '')
-                lines = string.replace(lines, '\n', '')
-                gribFiles.append(lines)
+        # output the binary logging to a log file.
+        d = datetime.now()
+        timestamp = d.isoformat()
+        timestamp = timestamp.replace(":", "")
+        logname = "iapp_grib_retrieval_{}.log".format(timestamp)
+        logpath = path.join(run_dir, logname)
+        logfile_obj = open(logpath, 'w')
 
-        # TODO : On error, jump to a cleanup routine
-        if not (procRetVal == 0):
-            LOG.error('Retrieval of ancillary files failed for {}.'
-                      .format(Level1D_obj.pass_mid_str))
-            #sys.exit(procRetVal)
+        for line in exe_out.splitlines():
+            line = string.replace(line, '(ERROR)', '(INFO)')
+            logfile_obj.write(line+"\n")
+            if "GDAS/GFS file" in line:
+                line = string.split(line," ")[-1]
+                gribFiles.append(line)
+
+        logfile_obj.close()
+
+        os.chdir(current_dir)
 
     except Exception, err:
         LOG.warn("{}".format(str(err)))
@@ -262,10 +261,13 @@ def retrieve_NCEP_grib_files(Level1D_obj):
     for gribFile in gribFiles:
         LOG.info('Retrieved GRIB file: {}'.format(gribFile))
 
-    return gribFiles
+    return gribFiles, rc_grib_ret
 
 
-def transcode_NCEP_grib_files(grib1_file, work_dir):
+def transcode_NCEP_grib_files(grib1_file, run_dir):
+    '''
+    Transcode the retrieved GRIB file to NetCDF.
+    '''
 
     IAPP_DECODERS_PATH = path.abspath(path.join(IAPP_HOME, 'decoders'))
     LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))
@@ -300,14 +302,6 @@ def transcode_NCEP_grib_files(grib1_file, work_dir):
                       .format(scriptPath))
             return -1
 
-    # Set up the logging
-    d = datetime.now()
-    timestamp = d.isoformat()
-    timestamp = timestamp.replace(":", "")
-    logname = "iapp_grib2nc." + timestamp + ".log"
-    logpath = path.join(work_dir, logname)
-    logfile_obj = open(logpath, 'w')
-
     current_dir = os.getcwd()
 
     script_args = '{} {}/iapp_ancillary.cdl'.format(grib1_file, IAPP_FILES_PATH)
@@ -319,39 +313,47 @@ def transcode_NCEP_grib_files(grib1_file, work_dir):
         LOG.debug('\t{}'.format(cmdStr))
         args = shlex.split(cmdStr)
 
-        os.chdir(work_dir)
+        # Contruct a dictionary of error conditions which should be logged.
+        error_keys = ['FAILURE', 'failure', 'FAILED', 'failed', 'FAIL', 'fail',
+                      'ERROR', 'error', 'ERR', 'err',
+                      'ABORTING', 'aborting', 'ABORT','abort']
+        error_dict = {x:{'pattern':x, 'count_only':False, 'count':0, 'max_count':None, 'log_str':''}
+                for x in error_keys}
+        error_dict['error_keys'] = error_keys
 
-        procRetVal = 0
-        procObj = subprocess.Popen(args,
-                                   env=env(IAPP_DECODERS_PATH=IAPP_DECODERS_PATH,
-                                           NCGEN_PATH=NCGEN_PATH),
-                                   bufsize=0, stdout=logfile_obj, stderr=subprocess.STDOUT)
-        procObj.wait()
-        procRetVal = procObj.returncode
+        os.chdir(run_dir)
+        env_vars = {'IAPP_DECODERS_PATH':IAPP_DECODERS_PATH,
+                    'NCGEN_PATH':NCGEN_PATH}
+        rc_grib_netcdf, exe_out = execute_binary_captured_inject_io(
+                run_dir, cmdStr, error_dict,
+                log_execution=False, log_stdout=False, log_stderr=False,
+                **env_vars)
 
-        logfile_obj.close()
 
-        os.chdir(current_dir)
+        # output the binary logging to a log file.
+        d = datetime.now()
+        timestamp = d.isoformat()
+        timestamp = timestamp.replace(":", "")
+        logname = "iapp_grib2nc_{}.log".format(timestamp)
+        logpath = path.join(run_dir, logname)
+        logfile_obj = open(logpath, 'w')
 
-        # TODO : On error, jump to a cleanup routine
-        if not (procRetVal == 0):
-            LOG.error('Transcoding NCEP file {} to NetCDF failed, aborting...'.format(grib1_file))
-            return -1
-
-        # Parse the logfile to determine the new NetCDF filename
-        logfile_obj = open(logpath, 'r')
         search_str = "Successfully transcoded to NetCDF file: "
-        for lines in logfile_obj:
-            if search_str in lines:
-                lines = string.replace(lines, search_str, '')
-                lines = string.replace(lines, '\n', '')
-                grib_netcdf_file = lines
+        for line in exe_out.splitlines():
+            logfile_obj.write(line+"\n")
+            if search_str in line:
+                LOG.debug('New NetCDF file: {}'.format(line))
+                line = string.split(line," ")[-1]
+                #line = string.replace(line, search_str, '')
+                #line = string.replace(line, '\n', '')
+                grib_netcdf_file = line
                 break
+
         logfile_obj.close()
 
         os.chdir(current_dir)
 
-        grib_netcdf_local_file = path.join(work_dir, grib_netcdf_file)
+        grib_netcdf_local_file = path.join(run_dir, grib_netcdf_file)
         grib_netcdf_remote_file = path.join(GRIB_FILE_PATH, grib_netcdf_file)
 
         LOG.debug('New NetCDF file successfully created: {}'.format(grib_netcdf_local_file))
@@ -375,7 +377,7 @@ def transcode_NCEP_grib_files(grib1_file, work_dir):
 
         # Remove the temporary NetCDF generation files
         for files in ['ancillary.data', 'ancillary.info', 'gribparm.lis']:
-            temp_file = path.join(work_dir, files)
+            temp_file = path.join(run_dir, files)
             if path.exists(temp_file):
                 LOG.debug('Removing temporary NetCDF generation file {}'.format(temp_file))
                 os.unlink(temp_file)
@@ -384,12 +386,14 @@ def transcode_NCEP_grib_files(grib1_file, work_dir):
         LOG.warn("{}".format(str(err)))
         LOG.debug(traceback.format_exc())
 
-    return grib_netcdf_remote_file
+    return grib_netcdf_remote_file, rc_grib_netcdf
 
 
 def retrieve_METAR_files(Level1D_obj, GRIB_FILE_PATH):
-    ''' Retrieve the METAR Surface Observation ancillary data which
-    cover the dates of the geolocation files.'''
+    '''
+    Retrieve the METAR Surface Observation ancillary data which cover the dates of the geolocation
+    files.
+    '''
 
     LOG.info('Retrieving METAR Surface Observation ancillary data for {}...'.format(Level1D_obj.input_file))
 
@@ -425,6 +429,9 @@ def retrieve_METAR_files(Level1D_obj, GRIB_FILE_PATH):
 
 
 def transcode_METAR_files(metar_file, work_dir):
+    '''
+    Transcode the retrieved METAR file to NetCDF.
+    '''
 
     IAPP_DECODERS_PATH = path.abspath(path.join(IAPP_HOME, 'decoders', 'bin'))
     LOG.debug('IAPP_DECODERS_PATH : {}'.format(IAPP_DECODERS_PATH))

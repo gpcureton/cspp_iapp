@@ -22,10 +22,6 @@ import fileinput
 from subprocess import Popen, CalledProcessError, call, PIPE
 from datetime import datetime
 
-import h5py
-import __main__
-
-
 LOG = logging.getLogger('iapp_utils')
 
 PROFILING_ENABLED = os.environ.get('CSPP_PROFILE', None) is not None
@@ -210,7 +206,6 @@ JPSS_REMOTE_ANC_DIR = None
 
 CSPP_PATHS = {}
 
-
 def check_anc_cache(check_write=True):
     default = os.path.join(CSPP_RT_HOME, "anc/cache")
     CSPP_RT_ANC_CACHE_DIR = check_and_convert_env_var('CSPP_RT_ANC_CACHE_DIR', check_write=check_write, default_value=default)
@@ -245,7 +240,9 @@ def initialize_cspp_variables(cspp_home):
 
 
 def check_env(work_dir):
-    " Check that needed environment variables are set"
+    '''
+    Check that needed environment variables are set
+    '''
 
     for key in EXTERNAL_BINARY.iterkeys():
         if not _ldd_verify(EXTERNAL_BINARY[key]):
@@ -256,7 +253,9 @@ logging_configured = False
 
 
 def configure_logging(level=logging.WARNING, FILE=None):
-    "route logging INFO and DEBUG to stdout instead of stderr, affects entire application"
+    '''
+    route logging INFO and DEBUG to stdout instead of stderr, affects entire application
+    '''
     global logging_configured
 
     # create a formatter to be used across everything
@@ -323,7 +322,9 @@ def status_line(status):
 
 
 def env(**kv):
-    "augment environment with new values"
+    '''
+    augment environment with new values
+    '''
     zult = dict(os.environ)
     zult.update(kv)
 
@@ -331,7 +332,9 @@ def env(**kv):
 
 
 def simple_sh(cmd, log_execution=True, *args, **kwargs):
-    "like subprocess.check_call, but returning the pid the process was given"
+    '''
+    like subprocess.check_call, but returning the pid the process was given
+    '''
     if STRACE_ENABLED:
         strace = open('strace.log', 'at')
         print >>strace, "= " * 32
@@ -369,7 +372,6 @@ def profiled_sh(cmd, log_execution=True, *args, **kwargs):
     """
     like subprocess.check_call, but returning the pid the process was given and
     logging as INFO the final content of /proc/PID/stat
-
     """
     pop = Popen(cmd, *args, **kwargs)
     pid = pop.pid
@@ -419,7 +421,9 @@ else:
 
 
 def link_ancillary_to_work_dir(work_dir, anc_path_seq):
-    """link ancillary files into work directory"""
+    """
+    link ancillary files into work directory
+    """
     for src_path in anc_path_seq:
         _, src_name = os.path.split(src_path)
         tgt_path = os.path.abspath(os.path.join(work_dir, src_name))
@@ -574,24 +578,24 @@ def execute_binary_captured_inject_io(work_dir, cmd, err_dict, log_execution=Tru
 
     error_keys = err_dict['error_keys']
     del(err_dict['error_keys'])
-    #temporal_warning_string = "Temporal_Data"
-    #temporal_warning = False
-    #hdf_too_big_string = "Cannot create HDF writing for SDS"
-    #hdf_too_big_warning = False
 
     # get the output
     out_str = ""
     while pop.poll()==None and nbsr_stdout.thread.is_alive() and nbsr_stderr.thread.is_alive():
 
+        '''
+        Trawl through the stdout stream
+        '''
         output_stdout = nbsr_stdout.readline(0.01) # 0.01 secs to let the shell output the result
 
         if output_stdout is not None:
+
+            # Gather the stdout stream for output to a log file.
             time_obj = datetime.utcnow()
             time_stamp = make_time_stamp_m(time_obj)
             out_str += "{} (INFO)  : {}".format(time_stamp,output_stdout)
 
             # Search stdout for exe error strings and pass them to the logger.
-            #LOG.info('error_keys = {}'.format(error_keys))
             for error_key in error_keys:
                 error_pattern = err_dict[error_key]['pattern']
                 if error_pattern in output_stdout:
@@ -609,39 +613,60 @@ def execute_binary_captured_inject_io(work_dir, cmd, err_dict, log_execution=Tru
                         LOG.warn(string.replace(output_stdout,"\n",""))
                     break
 
+        '''
+        Trawl through the stderr stream
+        '''
         output_stderr = nbsr_stderr.readline() # 0.1 secs to let the shell output the result
 
         if output_stderr is not None:
+
+            # Gather the stderr stream for output to a log file.
             time_obj = datetime.utcnow()
             time_stamp = make_time_stamp_m(time_obj)
-            stderr_str = "{}".format(output_stderr)
-            LOG.error(string.replace(stderr_str,"\n",""))
-            out_str += "{} (ERROR) : {}".format(time_stamp,stderr_str)
+            out_str += "{} (WARNING) : {}".format(time_stamp,output_stderr)
 
+        '''
+        Check to see if the stdout and stderr streams are ended
+        '''
         if not nbsr_stdout.thread.is_alive():
-            #LOG.debug("stdout thread has ended for segment {} of {}".format(kv['segment'],cmd.split(" ")[-1]))
             LOG.debug("stdout thread has ended for {}".format(cmd.split(" ")[-1]))
         if not nbsr_stderr.thread.is_alive():
-            #LOG.debug("stderr thread has ended for segment {} of {}".format(kv['segment'],cmd.split(" ")[-1]))
             LOG.debug("stderr thread has ended for {}".format(cmd.split(" ")[-1]))
 
-    # FIXME: Sometimes the nbsr_stdout and nbsr_stderr threads haven't finished
-    #        yet.
-    try:
-        anc_stdout, anc_stderr = pop.communicate()
-    except IOError:
-        pass
+    # Flush the remaining content in the stdout and stderr streams
+    while True:
+        try:
+            output_stdout = nbsr_stdout.readline(0.01) # 0.01 secs to let the shell output the result
+            output_stderr = nbsr_stderr.readline() # 0.1 secs to let the shell output the result
+
+            if output_stdout is not None or output_stderr is not None:
+
+                if output_stdout is not None:
+                    # Gather the stdout stream for output to a log file.
+                    time_obj = datetime.utcnow()
+                    time_stamp = make_time_stamp_m(time_obj)
+                    out_str += "{} (INFO)  : {}".format(time_stamp,output_stdout)
+
+                if output_stderr is not None:
+                    # Gather the stderr stream for output to a log file.
+                    time_obj = datetime.utcnow()
+                    time_stamp = make_time_stamp_m(time_obj)
+                    out_str += "{} (WARNING)  : {}".format(time_stamp,output_stderr)
+            else:
+                break
+
+        except IOError:
+            pass
 
     # Poll for the return code. A "None" value indicates that the process hasn’t terminated yet.
     # A negative value -N indicates that the child was terminated by signal N
-    #rc = pop.returncode
-    max_rc_poll_attempts = 10
+    max_rc_poll_attempts = 20
     rc_poll_attempts = 0
     continue_polling = True
     while continue_polling:
         if rc_poll_attempts == max_rc_poll_attempts:
             LOG.warn(
-            'Maximum number of attempts ({}) of obtaining geocat return code for {} reached, setting to zero.'
+            'Maximum number of attempts ({}) of obtaining return code for {} reached, setting to zero.'
             .format(rc_poll_attempts,cmd.split(" ")[-1],))
             rc = 0
             break
@@ -654,13 +679,11 @@ def execute_binary_captured_inject_io(work_dir, cmd, err_dict, log_execution=Tru
         rc_poll_attempts += 1
         time.sleep(0.5)
 
-
-    LOG.debug("{}: rc = {}".format(cmd.split(" ")[-1],rc))
+    LOG.debug("{}: rc = {}".format(cmd,rc))
 
     return rc, out_str
 
 # paths for IAPP and ancillary are set to default values based on relative location to this module.
-
 cspp_x_home = what_package_am_i()
 
 # This should be the same as CSPP_IAPP_HOME
@@ -668,13 +691,3 @@ CSPP_RT_HOME = check_and_convert_env_var("CSPP_RT_HOME", check_write=False, defa
 
 initialize_cspp_variables(CSPP_RT_HOME)
 initialize_IAPP_variables(CSPP_RT_HOME)
-
-
-if __name__ == '__main__':
-    """CSPP_RT_ANC_PATH=/tmp CSPP_RT_ANC_HOME=/tmp CSPP_RT_ANC_CACHE_DIR=/tmp
-       CSPP_RT_ANC_TILE_PATH=/tmp ADL_HOME=/tmp CSPP_RT_HOME=/tmp
-       python adl_common.py >stdout 2>stderr"""
-    # logging.basicConfig(level=logging.DEBUG) we don't want basicConfig anymore
-    configure_logging(level=logging.DEBUG, FILE="testlog.log")
-    _test_logging()
-    _test_parser()

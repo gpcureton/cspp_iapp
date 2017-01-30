@@ -44,21 +44,13 @@ import sys
 import logging
 import traceback
 from os import path, environ
-#import string
 import struct
-#import re
-#import uuid
 import shlex
 import subprocess
-#from subprocess import CalledProcessError, call
 from shutil import rmtree, move
 from glob import glob
 from time import time, sleep
 from datetime import datetime, timedelta
-
-#import numpy as np
-#from numpy import ma
-#import copy
 
 from iapp_utils import sh, env, execute_binary_captured_inject_io
 from iapp_utils import check_and_convert_path, check_existing_env_var
@@ -554,7 +546,7 @@ def run_iapp_exe(options, Level1D_obj, work_dir, run_dir):
     t1 = time()
 
     try:
-        # Call the transcoding script, writing the logging output to a file
+        # Call the iapp_main binary, writing the logging output to a file
         LOG.info('Running iapp_main, output to NetCDF template file {} ...'.format(netcdf_template_file))
         cmdStr = '{}'.format(scriptPath)
         LOG.debug('{}'.format(cmdStr))
@@ -798,15 +790,21 @@ def hirs_to_L2(work_dir, options):
                 if options.forecast_model_file is None:
 
                     # Retrieve the required GRIB1 GDAS/GFS ancillary data...
-                    gribFiles = retrieve_NCEP_grib_files(Level1D_obj)
+                    gribFiles, rc_grib_ret = retrieve_NCEP_grib_files(Level1D_obj, run_dir)
+
+                    if not (rc_grib_ret == 0) or gribFiles == [] :
+                        problem_runs.append(hirs_file)
+                        raise RuntimeError('Retrieval of GFS files failed')
+
                     LOG.debug('Retrieved GFS files: {}'.format(gribFiles))
 
                     # Transcode GRIB1 GDAS/GFS ancillary data to NetCDF
-                    grib_netcdf_file = transcode_NCEP_grib_files(gribFiles[0], run_dir)
+                    grib_netcdf_file, rc_grib_netcdf = transcode_NCEP_grib_files(gribFiles[0], run_dir)
 
                     # If IAPP failed, remove the link to the coefficients, and set the debug option
                     # to preserve the wreckage...
-                    if grib_netcdf_file == -1:
+                    if not (rc_grib_netcdf == 0):
+                        problem_runs.append(hirs_file)
                         raise RuntimeError('Transcoding GDAS/GFS to NetCDF failed')
 
                     LOG.info('Transcoded GDAS/GFS NetCDF file: {}'.format(grib_netcdf_file))
